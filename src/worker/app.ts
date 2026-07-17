@@ -1,6 +1,7 @@
 import { systemClock, type Clock } from '../platform/foundation/clock/index.js';
 import { sleep, type Sleep } from '../platform/foundation/sleep.js';
 import { createShutdownController } from '../platform/foundation/shutdown-signal.js';
+import type { AIPipeline } from '../application/ai/pipeline.js';
 import type { SourceVersionRepository } from '../domain/repositories/source-version-repository.js';
 import type { WorkerJobSource, WorkerRuntimeState } from '../domain/workers/worker-types.js';
 import { DatabaseWorkerHeartbeatStore } from '../infrastructure/workers/worker-heartbeat-store.js';
@@ -25,6 +26,7 @@ export type CreateWorkerAppDependencies = {
   };
   readonly sourceVersionRepository: SourceVersionRepository;
   readonly jobSource: WorkerJobSource;
+  readonly aiPipeline?: AIPipeline;
   readonly logger: {
     info: (payload: Record<string, unknown>, message: string) => void;
     warn: (payload: Record<string, unknown>, message: string) => void;
@@ -62,7 +64,8 @@ export function createWorkerApp(
 
   const processor = new DeterministicTranscriptProcessor(
     dependencies.sourceVersionRepository,
-    () => clock.now()
+    () => clock.now(),
+    dependencies.aiPipeline
   );
 
   const executor = new JobExecutor({

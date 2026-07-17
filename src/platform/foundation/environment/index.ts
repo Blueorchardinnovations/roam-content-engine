@@ -2,6 +2,9 @@ import 'dotenv/config';
 
 import { z } from 'zod';
 
+const trimString = (value: unknown): unknown =>
+  typeof value === 'string' ? value.trim() : value;
+
 const environmentSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -49,7 +52,27 @@ const environmentSchema = z.object({
 
   WORKER_RETRY_MAX_DELAY_MS: z.coerce.number().int().positive().default(60000),
 
-  WORKER_STALE_RECOVERY_INTERVAL_MS: z.coerce.number().int().positive().default(30000)
+  WORKER_STALE_RECOVERY_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
+
+  AI_PROVIDER: z.preprocess(trimString, z.enum(['mock', 'openai']).default('mock')),
+
+  OPENAI_API_KEY: z.preprocess(trimString, z.string().default('')),
+
+  OPENAI_MODEL: z.preprocess(trimString, z.string().min(1).default('gpt-4o-mini')),
+
+  OPENAI_TIMEOUT_MS: z.coerce.number().int().positive().max(300000).default(30000),
+
+  PIPELINE_VERSION: z.preprocess(trimString, z.string().min(1).default('1.0.0')),
+
+  MOCK_AI_MODE: z
+    .enum([
+      'success',
+      'retryable-failure',
+      'permanent-failure',
+      'timeout',
+      'malformed-output'
+    ])
+    .default('success')
 }).superRefine((value, context) => {
   if (value.WORKER_LEASE_DURATION_MS <= value.WORKER_HEARTBEAT_INTERVAL_MS) {
     context.addIssue({
@@ -64,6 +87,14 @@ const environmentSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: 'WORKER_RETRY_MAX_DELAY_MS must be greater than or equal to WORKER_RETRY_BASE_DELAY_MS.',
       path: ['WORKER_RETRY_MAX_DELAY_MS']
+    });
+  }
+
+  if (value.AI_PROVIDER === 'openai' && value.OPENAI_API_KEY.trim().length === 0) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'OPENAI_API_KEY is required when AI_PROVIDER=openai.',
+      path: ['OPENAI_API_KEY']
     });
   }
 });
@@ -97,6 +128,17 @@ export interface Environment {
   readonly workerRetryBaseDelayMs: number;
   readonly workerRetryMaxDelayMs: number;
   readonly workerStaleRecoveryIntervalMs: number;
+  readonly aiProvider: 'mock' | 'openai';
+  readonly openAiApiKey: string;
+  readonly openAiModel: string;
+  readonly openAiTimeoutMs: number;
+  readonly pipelineVersion: string;
+  readonly mockAiMode:
+    | 'success'
+    | 'retryable-failure'
+    | 'permanent-failure'
+    | 'timeout'
+    | 'malformed-output';
 }
 
 export const environment: Environment = {
@@ -117,5 +159,11 @@ export const environment: Environment = {
   workerRetryBaseDelayMs: parsedEnvironment.data.WORKER_RETRY_BASE_DELAY_MS,
   workerRetryMaxDelayMs: parsedEnvironment.data.WORKER_RETRY_MAX_DELAY_MS,
   workerStaleRecoveryIntervalMs:
-    parsedEnvironment.data.WORKER_STALE_RECOVERY_INTERVAL_MS
+    parsedEnvironment.data.WORKER_STALE_RECOVERY_INTERVAL_MS,
+  aiProvider: parsedEnvironment.data.AI_PROVIDER,
+  openAiApiKey: parsedEnvironment.data.OPENAI_API_KEY,
+  openAiModel: parsedEnvironment.data.OPENAI_MODEL,
+  openAiTimeoutMs: parsedEnvironment.data.OPENAI_TIMEOUT_MS,
+  pipelineVersion: parsedEnvironment.data.PIPELINE_VERSION,
+  mockAiMode: parsedEnvironment.data.MOCK_AI_MODE
 };

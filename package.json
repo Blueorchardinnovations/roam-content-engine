@@ -17,6 +17,7 @@
     "test": "vitest run --maxWorkers=1",
     "test:api": "vitest run tests/integration/api",
     "test:worker": "vitest run --maxWorkers=1 tests/unit/workers tests/integration/workers",
+    "test:ai": "vitest run --maxWorkers=1 tests/unit/ai tests/integration/ai tests/unit/workers/deterministic-transcript-processor-ai.test.ts",
     "test:unit": "vitest run tests/platform tests/domain",
     "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
@@ -30,6 +31,7 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.10.0",
+    "openai": "^6.48.0",
     "pg": "^8.22.0",
     "ulid": "^3.0.2",
     "zod": "^4.4.3"

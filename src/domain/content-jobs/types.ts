@@ -4,6 +4,7 @@ import {
   isPrefixedId,
   type PrefixedId
 } from '../../platform/identity/ids/index.js';
+import { aiPipelineResultSchema } from '../../schemas/ai/pipeline-schema.js';
 
 export const contentJobStatuses = [
   'queued',
@@ -46,7 +47,8 @@ export const transcriptProcessingResultSchema = z.object({
   characterCount: nonNegativeInt,
   paragraphCount: nonNegativeInt,
   lineCount: nonNegativeInt,
-  processedAt: z.string().datetime({ offset: true })
+  processedAt: z.string().datetime({ offset: true }),
+  ai: aiPipelineResultSchema.optional()
 });
 
 export type TranscriptProcessingResult = z.infer<

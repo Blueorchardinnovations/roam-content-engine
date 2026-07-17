@@ -2,16 +2,26 @@ import type { SourceVersionRepository } from '../../domain/repositories/source-v
 import type { ContentJobStage, TranscriptProcessingResult } from '../../domain/content-jobs/types.js';
 import type { JobProcessor } from '../../domain/workers/job-processor.js';
 import type { WorkerLeasedJob } from '../../domain/workers/worker-types.js';
-import { PermanentWorkerError, WorkerCancelledError } from '../../domain/workers/worker-errors.js';
+import {
+  AIAuthenticationError,
+  AIPermanentError,
+  AIValidationError,
+  AIRateLimitError,
+  AITimeoutError,
+  AIProviderUnavailableError
+} from '../../domain/ai/index.js';
+import { PermanentWorkerError, RetryableWorkerError, WorkerCancelledError } from '../../domain/workers/worker-errors.js';
 import { ErrorCode } from '../../platform/shared/errors/codes.js';
 import { normalizeTranscript, computeTranscriptHash } from '../../platform/security/hashing/index.js';
+import type { AIPipeline } from '../../application/ai/pipeline.js';
 
 export class DeterministicTranscriptProcessor implements JobProcessor {
   public readonly jobType = 'transcript-processing' as const;
 
   public constructor(
     private readonly sourceVersionRepository: SourceVersionRepository,
-    private readonly now: () => Date
+    private readonly now: () => Date,
+    private readonly aiPipeline?: AIPipeline
   ) {}
 
   public async process(input: {
@@ -66,6 +76,41 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
       ? 0
       : normalized.split(/\n/).filter((part) => part.trim().length > 0).length;
 
+    let aiResult: TranscriptProcessingResult['ai'];
+
+    if (this.aiPipeline) {
+      try {
+        aiResult = await this.aiPipeline.run(
+          {
+            transcriptText: normalized
+          },
+          input.signal
+        );
+      } catch (error) {
+        if (
+          error instanceof AIProviderUnavailableError
+          || error instanceof AIRateLimitError
+          || error instanceof AITimeoutError
+        ) {
+          throw new RetryableWorkerError(error.message, error.code);
+        }
+
+        if (
+          error instanceof AIAuthenticationError
+          || error instanceof AIValidationError
+          || error instanceof AIPermanentError
+        ) {
+          throw new PermanentWorkerError(error.message, error.code);
+        }
+
+        throw error;
+      }
+    }
+
+    if (input.signal.aborted) {
+      throw new WorkerCancelledError();
+    }
+
     const processedAt = this.now().toISOString();
 
     return {
@@ -76,7 +121,8 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
       characterCount: normalized.length,
       paragraphCount: paragraphs,
       lineCount: lines,
-      processedAt
+      processedAt,
+      ai: aiResult
     };
   }
 }

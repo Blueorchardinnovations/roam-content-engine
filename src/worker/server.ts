@@ -2,8 +2,10 @@ import { fileURLToPath } from 'node:url';
 import { ulid } from 'ulid';
 
 import { closeDatabasePool, db } from '../db/client.js';
+import { AIPipeline } from '../application/ai/pipeline.js';
 import { DrizzleSourceVersionRepository } from '../infrastructure/repositories/drizzle-source-version-repository.js';
 import { environment } from '../platform/foundation/environment/index.js';
+import { createAIProvider } from '../infrastructure/ai/registry.js';
 import { DatabaseJobSource } from '../infrastructure/workers/database-job-source.js';
 
 import { createWorkerApp } from './app.js';
@@ -38,6 +40,19 @@ export async function startWorkerServer(): Promise<void> {
 
   const sourceVersionRepository = new DrizzleSourceVersionRepository(db);
   const jobSource = new DatabaseJobSource(db);
+  const aiProvider = createAIProvider({
+    providerName: environment.aiProvider,
+    openAiApiKey: environment.openAiApiKey,
+    openAiModel: environment.openAiModel,
+    openAiTimeoutMs: environment.openAiTimeoutMs,
+    mockMode: environment.mockAiMode,
+    now: () => new Date()
+  });
+  const aiPipeline = new AIPipeline(
+    aiProvider,
+    environment.pipelineVersion,
+    environment.openAiTimeoutMs
+  );
 
   const workerApp = createWorkerApp({
     workerConfig: {
@@ -54,6 +69,7 @@ export async function startWorkerServer(): Promise<void> {
     },
     sourceVersionRepository,
     jobSource,
+    aiPipeline,
     logger
   });
 

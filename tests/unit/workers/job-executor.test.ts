@@ -187,7 +187,7 @@ describe('job executor', () => {
     expect(markFailed).toHaveBeenCalledTimes(1);
   });
 
-  it('handles cancellation by scheduling retry', async () => {
+  it('handles cancellation without scheduling retry', async () => {
     const processor: JobProcessor = {
       jobType: 'transcript-processing',
       process: async () => {
@@ -200,7 +200,7 @@ describe('job executor', () => {
     const outcome = await executor.execute(job, new AbortController().signal);
 
     expect(outcome).toBe('cancelled');
-    expect(scheduleRetry).toHaveBeenCalledTimes(1);
+    expect(scheduleRetry).not.toHaveBeenCalled();
   });
 
   it('stops with lease-lost outcome when heartbeat loses ownership', async () => {

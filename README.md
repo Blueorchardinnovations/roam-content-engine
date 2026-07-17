@@ -10,10 +10,12 @@ The codebase is organized into layered modules:
 - `src/domain/repositories`: repository interfaces
 - `src/infrastructure/repositories`: Drizzle/PostgreSQL implementations
 - `src/application`: use-case services that orchestrate repository calls
+- `src/application/ai`: provider-independent AI prompt runner, usage aggregation, and pipeline orchestration
 - `src/api`: Fastify HTTP API, validation, middleware, serializers, and error handling
 - `src/worker`: worker runtime composition and process entrypoint
 - `src/application/workers`: worker loop, execution orchestration, stale recovery, retry policy
 - `src/infrastructure/workers`: database-backed worker job source and deterministic transcript processor
+- `src/infrastructure/ai`: AI provider registry, OpenAI and mock providers, and prompt definitions
 - `src/platform`: shared platform concerns (environment, IDs, hashing, errors, request context)
 
 HTTP handlers call application services and never execute SQL directly.
@@ -28,12 +30,14 @@ Implemented in this milestone:
 - transactional content-job lifecycle transitions and job events
 - production-oriented Fastify HTTP API (`/v1`) over repository-backed application services
 - database-backed worker foundation with lease-based acquisition, heartbeats, retries, and stale recovery
+- provider-independent AI processing pipeline with schema-validated prompt outputs
 - deterministic transcript processor implementation for local development and integration validation
 
 Not implemented in this milestone:
 
 - Microsoft Entra authentication and JWT validation
-- AI provider integrations and publication generation pipelines
+- Azure OpenAI integration
+- publication generation (CTA and EPUB outputs)
 - Azure Service Bus transport (database queue is the interim transport)
 
 The temporary `x-tenant-id` header is a development identity adapter only. It is not production authentication.
@@ -108,6 +112,12 @@ WORKER_SHUTDOWN_TIMEOUT_MS=30000
 WORKER_STALE_RECOVERY_INTERVAL_MS=30000
 WORKER_RETRY_BASE_DELAY_MS=1000
 WORKER_RETRY_MAX_DELAY_MS=60000
+AI_PROVIDER=mock
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_TIMEOUT_MS=30000
+PIPELINE_VERSION=1.0.0
+MOCK_AI_MODE=success
 ```
 
 Notes:
@@ -115,7 +125,36 @@ Notes:
 - `HOST` and `PORT` default to `0.0.0.0` and `3000`.
 - worker validation enforces `WORKER_LEASE_DURATION_MS > WORKER_HEARTBEAT_INTERVAL_MS`.
 - worker validation enforces `WORKER_RETRY_MAX_DELAY_MS >= WORKER_RETRY_BASE_DELAY_MS`.
+- `AI_PROVIDER` supports `mock` and `openai`.
+- `OPENAI_API_KEY` is required when `AI_PROVIDER=openai`.
+- `MOCK_AI_MODE` supports deterministic fault injection: `success`, `retryable-failure`, `permanent-failure`, `timeout`, `malformed-output`.
+- `AI_PROVIDER=mock` is the default development/testing mode.
+- OpenAI SDK retries are disabled; worker retry policy remains the only retry layer.
+- token counts are validated as nonnegative safe integers.
+- `totalTokens` is computed as `inputTokens + outputTokens`; provider-reported totals are not blindly trusted.
+- Monetary cost estimation is not implemented in this milestone; usage records keep token and latency data only.
 - Do not commit real credentials.
+
+## AI Processing Pipeline
+
+Transcript jobs continue to compute deterministic normalization and statistics, and now optionally attach AI outputs under the job `result.ai` field.
+
+Pipeline characteristics:
+
+- provider-independent `AIProvider` contract (`mock` and `openai` implementations)
+- schema-first prompt outputs using Zod validation per prompt
+- sequential prompt execution (`metadata`, `keywords`, `summary`, `scripture`, `reflections`)
+- per-prompt usage capture plus aggregated usage totals
+- pipeline metadata includes `provider`, `model`, and `pipelineVersion`
+- when `AI_PROVIDER=openai`, transcript content is sent to OpenAI for processing
+- worker shutdown cancellation and provider timeout are handled as distinct outcomes
+- AI outputs are schema validated and unexpected fields are rejected
+- monetary cost estimation is intentionally omitted in this milestone
+
+Worker retry semantics for AI execution:
+
+- transient provider failures (`AI_PROVIDER_UNAVAILABLE`, `AI_RATE_LIMIT`, `AI_TIMEOUT`) map to retryable worker failures
+- invalid output, auth errors, and permanent provider failures map to permanent worker failures
 
 ## Run Commands
 

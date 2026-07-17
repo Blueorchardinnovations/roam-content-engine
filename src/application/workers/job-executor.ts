@@ -219,13 +219,16 @@ export class JobExecutor {
       }
 
       if (jobAbortController.signal.aborted || error instanceof WorkerCancelledError) {
-        return await this.scheduleRetryOrFail(
-          job,
-          new RetryableWorkerError(
-            'Job execution was cancelled.',
-            ErrorCode.WORKER_CANCELLED
-          )
+        this.dependencies.logger.warn(
+          {
+            workerId: job.leaseOwner,
+            tenantId: job.tenantId,
+            jobId: job.id
+          },
+          'Worker job execution was cancelled.'
         );
+
+        return 'cancelled';
       }
 
       const mappedError = this.classifyError(error);

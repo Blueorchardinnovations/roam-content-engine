@@ -39,6 +39,20 @@ describe('platform environment', () => {
     expect(environment.workerStaleRecoveryIntervalMs).toBeGreaterThan(0);
   });
 
+  it('loads AI runtime settings', () => {
+    expect(['mock', 'openai']).toContain(environment.aiProvider);
+    expect(environment.openAiModel.length).toBeGreaterThan(0);
+    expect(environment.openAiTimeoutMs).toBeGreaterThan(0);
+    expect(environment.pipelineVersion.length).toBeGreaterThan(0);
+    expect([
+      'success',
+      'retryable-failure',
+      'permanent-failure',
+      'timeout',
+      'malformed-output'
+    ]).toContain(environment.mockAiMode);
+  });
+
   it('defaults NODE_ENV when not provided', () => {
     expect(environment.nodeEnv.length).toBeGreaterThan(0);
   });

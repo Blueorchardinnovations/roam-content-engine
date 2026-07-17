@@ -10,7 +10,12 @@
     "db:check": "drizzle-kit check",
     "db:studio": "drizzle-kit studio",
     "db:health": "tsx src/db/health-check.ts",
+    "dev": "tsx watch src/api/server.ts",
+    "start": "tsx src/api/server.ts",
     "test": "vitest run",
+    "test:api": "vitest run tests/integration/api",
+    "test:unit": "vitest run tests/platform tests/domain",
+    "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -18,8 +23,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@fastify/sensible": "^6.0.4",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "fastify": "^5.10.0",
     "pg": "^8.22.0",
     "ulid": "^3.0.2",
     "zod": "^4.4.3"

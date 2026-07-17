@@ -114,9 +114,21 @@ describe.sequential('ai worker lifecycle integration', () => {
       expect(completed.result?.ai?.promptExecutions.every((entry) => entry.promptVersion === '1.0')).toBe(true);
       expect(completed.result?.ai?.usageTotals.estimatedCostUsd).toBeNull();
       expect(completed.result?.ai && 'prompt' in completed.result.ai).toBe(false);
+      expect(completed.result?.publication).toBeDefined();
+      expect(completed.result?.publication?.metadata.publicationType).toBe('cta-guide');
+      expect(completed.result?.publication?.toc.entries.every((entry) => entry.pageNumber === null)).toBe(true);
+      expect(completed.result?.publication?.sections.length).toBeGreaterThanOrEqual(3);
+      expect(completed.result?.publication?.renderOptions.preferredTargets).toContain('cta-guide');
+      expect(completed.result?.publication?.sections.some((section) => section.id === 'call-to-action')).toBe(false);
+      expect(completed.result?.publication?.sections.some((section) => section.id === 'prayer')).toBe(false);
+      expect(completed.result?.publication?.sections.some((section) => section.id === 'journal-prompts')).toBe(false);
+      expect(completed.result?.publication?.sections.some((section) => section.id === 'next-steps')).toBe(false);
 
       const persistedAi = completed.result?.ai;
       expect(persistedAi).toBeDefined();
+
+      const persistedPublication = completed.result?.publication;
+      expect(persistedPublication).toBeDefined();
 
       const serialized = JSON.stringify(persistedAi);
       expect(serialized).not.toContain(transcriptSentinel);
@@ -127,6 +139,18 @@ describe.sequential('ai worker lifecycle integration', () => {
       expect(serialized).not.toContain('messages');
       expect(serialized).not.toContain('authorization');
       expect(serialized).not.toContain('api key');
+
+      const serializedPublication = JSON.stringify(persistedPublication);
+      expect(serializedPublication).not.toContain(transcriptSentinel);
+      expect(serializedPublication).not.toContain('system prompt');
+      expect(serializedPublication).not.toContain('user prompt');
+      expect(serializedPublication).not.toContain('provider request');
+      expect(serializedPublication).not.toContain('provider response');
+      expect(serializedPublication).not.toContain('raw completion');
+      expect(serializedPublication).not.toContain('api key');
+      expect(serializedPublication).not.toContain('authorization');
+      expect(serializedPublication).not.toContain('postgresql://');
+      expect(serializedPublication).not.toContain('lease token');
 
       for (const execution of completed.result?.ai?.promptExecutions ?? []) {
         expect(Object.keys(execution).sort()).toEqual([

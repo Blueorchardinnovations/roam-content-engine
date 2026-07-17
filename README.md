@@ -11,12 +11,15 @@ The codebase is organized into layered modules:
 - `src/infrastructure/repositories`: Drizzle/PostgreSQL implementations
 - `src/application`: use-case services that orchestrate repository calls
 - `src/application/ai`: provider-independent AI prompt runner, usage aggregation, and pipeline orchestration
+- `src/application/publications`: normalized publication builder and CTA guide template
 - `src/api`: Fastify HTTP API, validation, middleware, serializers, and error handling
 - `src/worker`: worker runtime composition and process entrypoint
 - `src/application/workers`: worker loop, execution orchestration, stale recovery, retry policy
 - `src/infrastructure/workers`: database-backed worker job source and deterministic transcript processor
 - `src/infrastructure/ai`: AI provider registry, OpenAI and mock providers, and prompt definitions
 - `src/platform`: shared platform concerns (environment, IDs, hashing, errors, request context)
+- `src/domain/publications`: renderer-independent publication document model
+- `src/schemas/publications`: strict publication validation schemas
 
 HTTP handlers call application services and never execute SQL directly.
 Tenant scope is enforced through validated request context before `/v1` handlers run.
@@ -37,7 +40,7 @@ Not implemented in this milestone:
 
 - Microsoft Entra authentication and JWT validation
 - Azure OpenAI integration
-- publication generation (CTA and EPUB outputs)
+- publication rendering to EPUB/PDF/DOCX/HTML
 - Azure Service Bus transport (database queue is the interim transport)
 
 The temporary `x-tenant-id` header is a development identity adapter only. It is not production authentication.
@@ -150,6 +153,88 @@ Pipeline characteristics:
 - worker shutdown cancellation and provider timeout are handled as distinct outcomes
 - AI outputs are schema validated and unexpected fields are rejected
 - monetary cost estimation is intentionally omitted in this milestone
+
+## Publication Generation Framework
+
+After AI pipeline completion, the worker now builds and persists a normalized publication object.
+
+Architecture flow:
+
+- `Worker -> AI Pipeline -> Publication Builder -> Publication Model -> Renderer (future)`
+
+The publication builder is renderer-independent and currently emits a structured CTA Guide publication model.
+
+Supported publication sections in the CTA template:
+
+- Cover
+- Table of Contents
+- Message Summary
+- Key Themes
+- Scripture References
+- Reflection Questions
+- References
+
+Sections that require dedicated AI outputs are currently deferred and may be omitted:
+
+- Call To Action
+- Journal Prompts
+- Prayer
+- Next Steps
+
+Supported normalized publication blocks:
+
+- heading
+- paragraph
+- quote
+- reflection
+- call-to-action
+- prayer
+- scripture
+- journal-prompt
+- checklist
+- bullet-list
+- numbered-list
+- sidebar
+- image-placeholder
+- table
+- divider
+- key-takeaway
+- warning
+- highlight
+
+Supported publication metadata includes:
+
+- publication metadata (type, title, subtitle, audience, theme, style)
+- cover metadata
+- table of contents regenerated from final sections (excluding cover and the TOC section itself)
+- table of contents entries with null page numbers until rendering
+- references, citations, and footnotes
+- asset references only (no binary storage)
+- render intent options for future renderers
+
+Validation guarantees:
+
+- strict schema validation for all publication objects and blocks
+- publication-wide ID uniqueness (sections, blocks, TOC entries, references, citations, footnotes, assets)
+- cross-object reference integrity checks for TOC targets, internal references, citations, footnotes, and assets
+
+Current CTA template policy:
+
+- no invented prayer, CTA, journal, or next-step prose
+- unsupported content sections are omitted until dedicated validated AI fields exist
+- only validated AI-derived content is transformed into normalized publication structure
+
+Current limitations:
+
+- pagination is not implemented
+- binary asset embedding is not implemented
+- EPUB rendering is not implemented.
+- PDF rendering is not implemented.
+- DOCX rendering is not implemented.
+- HTML rendering is not implemented.
+- cover image assets are references only.
+- page numbers remain null until rendering.
+- Only normalized publication generation exists in this milestone.
 
 Worker retry semantics for AI execution:
 

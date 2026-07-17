@@ -14,6 +14,13 @@ import { PermanentWorkerError, RetryableWorkerError, WorkerCancelledError } from
 import { ErrorCode } from '../../platform/shared/errors/codes.js';
 import { normalizeTranscript, computeTranscriptHash } from '../../platform/security/hashing/index.js';
 import type { AIPipeline } from '../../application/ai/pipeline.js';
+import type { PublicationGenerator } from '../../application/publications/publication-generator.js';
+import {
+  PublicationBuildError,
+  PublicationCancelledError,
+  PublicationValidationError,
+  UnsupportedPublicationTypeError
+} from '../../application/publications/publication-errors.js';
 
 export class DeterministicTranscriptProcessor implements JobProcessor {
   public readonly jobType = 'transcript-processing' as const;
@@ -21,7 +28,8 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
   public constructor(
     private readonly sourceVersionRepository: SourceVersionRepository,
     private readonly now: () => Date,
-    private readonly aiPipeline?: AIPipeline
+    private readonly aiPipeline?: AIPipeline,
+    private readonly publicationGenerator?: PublicationGenerator
   ) {}
 
   public async process(input: {
@@ -77,6 +85,7 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
       : normalized.split(/\n/).filter((part) => part.trim().length > 0).length;
 
     let aiResult: TranscriptProcessingResult['ai'];
+    let publicationResult: TranscriptProcessingResult['publication'];
 
     if (this.aiPipeline) {
       try {
@@ -107,6 +116,54 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
       }
     }
 
+    if (aiResult) {
+      if (!this.publicationGenerator) {
+        throw new PermanentWorkerError(
+          'Publication generation is not configured.',
+          ErrorCode.PUBLICATION_BUILD_ERROR
+        );
+      }
+
+      try {
+        publicationResult = await this.publicationGenerator.build(
+          {
+            sourceVersionId: sourceVersion.id,
+            sourceContentHash: computeTranscriptHash(normalized),
+            aiResult,
+            publicationType: 'cta-guide'
+          },
+          input.signal
+        );
+      } catch (error) {
+        if (error instanceof PublicationCancelledError || input.signal.aborted) {
+          throw new WorkerCancelledError();
+        }
+
+        if (error instanceof PublicationValidationError) {
+          throw new PermanentWorkerError(
+            'Publication validation failed.',
+            ErrorCode.PUBLICATION_VALIDATION_ERROR
+          );
+        }
+
+        if (error instanceof UnsupportedPublicationTypeError) {
+          throw new PermanentWorkerError(
+            'Unsupported publication type.',
+            ErrorCode.PUBLICATION_UNSUPPORTED_TYPE
+          );
+        }
+
+        if (error instanceof PublicationBuildError) {
+          throw new PermanentWorkerError(
+            'Publication build failed.',
+            ErrorCode.PUBLICATION_BUILD_ERROR
+          );
+        }
+
+        throw error;
+      }
+    }
+
     if (input.signal.aborted) {
       throw new WorkerCancelledError();
     }
@@ -122,7 +179,8 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
       paragraphCount: paragraphs,
       lineCount: lines,
       processedAt,
-      ai: aiResult
+      ai: aiResult,
+      publication: publicationResult
     };
   }
 }

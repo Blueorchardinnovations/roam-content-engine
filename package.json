@@ -18,6 +18,7 @@
     "test:api": "vitest run tests/integration/api",
     "test:worker": "vitest run --maxWorkers=1 tests/unit/workers tests/integration/workers",
     "test:ai": "vitest run --maxWorkers=1 tests/unit/ai tests/integration/ai tests/unit/workers/deterministic-transcript-processor-ai.test.ts",
+    "test:publication": "vitest run tests/unit/publications tests/integration/publications tests/unit/workers/deterministic-transcript-processor-publication.test.ts",
     "test:unit": "vitest run tests/platform tests/domain",
     "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",

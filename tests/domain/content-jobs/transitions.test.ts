@@ -15,8 +15,7 @@ describe('content job transitions', () => {
       ['processing', 'retrying'],
       ['processing', 'failed'],
       ['queued', 'cancelled'],
-      ['retrying', 'cancelled'],
-      ['processing', 'cancelled']
+      ['retrying', 'cancelled']
     ];
 
     for (const [from, to] of allowed) {
@@ -30,6 +29,7 @@ describe('content job transitions', () => {
       ['queued', 'completed'],
       ['queued', 'failed'],
       ['retrying', 'completed'],
+      ['processing', 'cancelled'],
       ['failed', 'processing'],
       ['cancelled', 'processing'],
       ['failed', 'completed']

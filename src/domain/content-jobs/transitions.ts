@@ -5,7 +5,7 @@ import type { ContentJobStatus } from './types.js';
 
 const allowedTransitions: Readonly<Record<ContentJobStatus, readonly ContentJobStatus[]>> = {
   queued: ['processing', 'cancelled'],
-  processing: ['completed', 'retrying', 'failed', 'cancelled'],
+  processing: ['completed', 'retrying', 'failed'],
   retrying: ['processing', 'cancelled'],
   completed: [],
   failed: [],

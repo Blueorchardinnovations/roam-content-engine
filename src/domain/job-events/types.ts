@@ -5,11 +5,13 @@ import type { ContentJobStatus } from '../content-jobs/types.js';
 export const jobEventTypes = [
   'job-created',
   'job-claimed',
+  'job-lease-acquired',
   'job-processing-started',
   'job-completed',
   'job-retry-scheduled',
   'job-failed',
-  'job-cancelled'
+  'job-cancelled',
+  'job-lease-expired'
 ] as const;
 
 export type JobEventType = (typeof jobEventTypes)[number];

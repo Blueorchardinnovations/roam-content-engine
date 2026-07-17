@@ -11,11 +11,13 @@ import { contentJobs, contentJobStatusEnum } from './content-jobs.js';
 export const jobEventTypeEnum = pgEnum('job_event_type', [
   'job-created',
   'job-claimed',
+  'job-lease-acquired',
   'job-processing-started',
   'job-completed',
   'job-retry-scheduled',
   'job-failed',
-  'job-cancelled'
+  'job-cancelled',
+  'job-lease-expired'
 ]);
 
 export const jobEvents = pgTable('job_events', {

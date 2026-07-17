@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
@@ -29,6 +29,8 @@ const db = drizzle(integrationPool, {
     jobEvents
   }
 });
+
+export const integrationDb = db;
 
 export const repositories = {
   sourceVersions: new DrizzleSourceVersionRepository(db),
@@ -61,6 +63,23 @@ export async function createContentJobForTest(input: CreateContentJobInput) {
 export async function clearTenantData(
   tenantId: PrefixedId<'tenant'>
 ): Promise<void> {
+  const tenantJobs = await db
+    .select({ id: contentJobs.id })
+    .from(contentJobs)
+    .where(eq(contentJobs.tenantId, tenantId));
+
+  if (tenantJobs.length > 0) {
+    await db.delete(jobEvents).where(
+      and(
+        eq(jobEvents.tenantId, tenantId),
+        inArray(
+          jobEvents.jobId,
+          tenantJobs.map((row) => row.id)
+        )
+      )
+    );
+  }
+
   await db.delete(jobEvents).where(eq(jobEvents.tenantId, tenantId));
   await db.delete(contentJobs).where(eq(contentJobs.tenantId, tenantId));
   await db.delete(sourceVersions).where(eq(sourceVersions.tenantId, tenantId));

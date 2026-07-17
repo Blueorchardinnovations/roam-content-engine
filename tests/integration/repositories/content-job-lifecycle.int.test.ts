@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { and, eq } from 'drizzle-orm';
 
 import { ErrorCode } from '../../../src/platform/shared/errors/codes.js';
+import { contentJobs } from '../../../src/db/schema/content-jobs.js';
 import {
   ConflictError,
   ValidationError
@@ -9,6 +11,7 @@ import {
   clearTenantData,
   createSourceVersionForTest,
   createTestScope,
+  integrationDb,
   repositories
 } from '../support/database.js';
 
@@ -198,6 +201,51 @@ describe.sequential('DrizzleContentJobRepository lifecycle integration', () => {
       } satisfies Partial<ConflictError>);
 
       await clearTenantData(queueScope.tenantId);
+    } finally {
+      await clearTenantData(scope.tenantId);
+    }
+  });
+
+  it('rejects cancellation for processing job and preserves lease ownership and events', async () => {
+    const { scope, claimed } = await createClaimedJob();
+    const now = new Date('2026-01-01T00:00:00.000Z');
+
+    try {
+      await integrationDb
+        .update(contentJobs)
+        .set({
+          leaseOwner: 'worker_cancel_guard',
+          leaseExpiresAt: new Date('2026-01-01T00:10:00.000Z'),
+          heartbeatAt: now
+        })
+        .where(
+          and(
+            eq(contentJobs.tenantId, scope.tenantId),
+            eq(contentJobs.id, claimed.id)
+          )
+        );
+
+      const eventsBefore = await repositories.jobEvents.listByJob(scope.tenantId, claimed.id);
+
+      await expect(
+        repositories.contentJobs.cancel(scope.tenantId, claimed.id)
+      ).rejects.toMatchObject({
+        code: ErrorCode.INVALID_WORKFLOW_STATE
+      } satisfies Partial<ConflictError>);
+
+      const jobAfter = await integrationDb.query.contentJobs.findFirst({
+        where: and(
+          eq(contentJobs.tenantId, scope.tenantId),
+          eq(contentJobs.id, claimed.id)
+        )
+      });
+
+      expect(jobAfter?.status).toBe('processing');
+      expect(jobAfter?.leaseOwner).toBe('worker_cancel_guard');
+
+      const eventsAfter = await repositories.jobEvents.listByJob(scope.tenantId, claimed.id);
+      expect(eventsAfter).toHaveLength(eventsBefore.length);
+      expect(eventsAfter.some((event) => event.eventType === 'job-cancelled')).toBe(false);
     } finally {
       await clearTenantData(scope.tenantId);
     }

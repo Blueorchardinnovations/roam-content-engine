@@ -23,6 +23,22 @@ describe('platform environment', () => {
     expect(typeof environment.databaseSsl).toBe('boolean');
   });
 
+  it('loads worker runtime settings', () => {
+    expect(environment.workerName.length).toBeGreaterThan(0);
+    expect(environment.workerPollIntervalMs).toBeGreaterThan(0);
+    expect(environment.workerLeaseDurationMs).toBeGreaterThan(
+      environment.workerHeartbeatIntervalMs
+    );
+    expect(environment.workerMaxAttempts).toBeGreaterThanOrEqual(1);
+    expect(environment.workerConcurrency).toBeGreaterThanOrEqual(1);
+    expect(environment.workerShutdownTimeoutMs).toBeGreaterThan(0);
+    expect(environment.workerRetryBaseDelayMs).toBeGreaterThan(0);
+    expect(environment.workerRetryMaxDelayMs).toBeGreaterThanOrEqual(
+      environment.workerRetryBaseDelayMs
+    );
+    expect(environment.workerStaleRecoveryIntervalMs).toBeGreaterThan(0);
+  });
+
   it('defaults NODE_ENV when not provided', () => {
     expect(environment.nodeEnv.length).toBeGreaterThan(0);
   });

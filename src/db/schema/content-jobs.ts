@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -49,6 +50,16 @@ export const contentJobs = pgTable(
     errorCode: text('error_code'),
     errorMessage: text('error_message'),
     correlationId: text('correlation_id').notNull(),
+    leaseOwner: text('lease_owner'),
+    leaseExpiresAt: timestamp('lease_expires_at', {
+      withTimezone: true
+    }),
+    heartbeatAt: timestamp('heartbeat_at', {
+      withTimezone: true
+    }),
+    nextAttemptAt: timestamp('next_attempt_at', {
+      withTimezone: true
+    }),
     createdAt: timestamp('created_at', {
       withTimezone: true
     })
@@ -70,6 +81,15 @@ export const contentJobs = pgTable(
     uniqueIndex('content_jobs_tenant_idempotency_key_unique').on(
       table.tenantId,
       table.idempotencyKey
+    ),
+    index('content_jobs_status_next_attempt_created_idx').on(
+      table.status,
+      table.nextAttemptAt,
+      table.createdAt
+    ),
+    index('content_jobs_status_lease_expires_idx').on(
+      table.status,
+      table.leaseExpiresAt
     ),
     check(
       'content_jobs_attempt_count_non_negative_check',

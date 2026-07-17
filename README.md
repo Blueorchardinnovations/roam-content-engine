@@ -1,6 +1,6 @@
 # RoaM Content Engine
 
-This repository contains the RoaM Content Engine core domain, repository, and HTTP API layers.
+This repository contains the RoaM Content Engine core domain, repository, HTTP API, and background worker foundation.
 
 ## Repository Purpose And Architecture
 
@@ -11,6 +11,9 @@ The codebase is organized into layered modules:
 - `src/infrastructure/repositories`: Drizzle/PostgreSQL implementations
 - `src/application`: use-case services that orchestrate repository calls
 - `src/api`: Fastify HTTP API, validation, middleware, serializers, and error handling
+- `src/worker`: worker runtime composition and process entrypoint
+- `src/application/workers`: worker loop, execution orchestration, stale recovery, retry policy
+- `src/infrastructure/workers`: database-backed worker job source and deterministic transcript processor
 - `src/platform`: shared platform concerns (environment, IDs, hashing, errors, request context)
 
 HTTP handlers call application services and never execute SQL directly.
@@ -24,12 +27,14 @@ Implemented in this milestone:
 - tenant-scoped idempotent content-job creation
 - transactional content-job lifecycle transitions and job events
 - production-oriented Fastify HTTP API (`/v1`) over repository-backed application services
+- database-backed worker foundation with lease-based acquisition, heartbeats, retries, and stale recovery
+- deterministic transcript processor implementation for local development and integration validation
 
 Not implemented in this milestone:
 
 - Microsoft Entra authentication and JWT validation
-- worker execution loops and internal claim/retry processors
 - AI provider integrations and publication generation pipelines
+- Azure Service Bus transport (database queue is the interim transport)
 
 The temporary `x-tenant-id` header is a development identity adapter only. It is not production authentication.
 
@@ -93,11 +98,23 @@ PORT=3000
 DATABASE_URL=postgresql://roam_content:roam_content_dev@localhost:5432/roam_content
 DATABASE_MAX_CONNECTIONS=10
 DATABASE_SSL=false
+WORKER_NAME=roam-content-worker
+WORKER_POLL_INTERVAL_MS=1000
+WORKER_LEASE_DURATION_MS=30000
+WORKER_HEARTBEAT_INTERVAL_MS=10000
+WORKER_MAX_ATTEMPTS=5
+WORKER_CONCURRENCY=1
+WORKER_SHUTDOWN_TIMEOUT_MS=30000
+WORKER_STALE_RECOVERY_INTERVAL_MS=30000
+WORKER_RETRY_BASE_DELAY_MS=1000
+WORKER_RETRY_MAX_DELAY_MS=60000
 ```
 
 Notes:
 
 - `HOST` and `PORT` default to `0.0.0.0` and `3000`.
+- worker validation enforces `WORKER_LEASE_DURATION_MS > WORKER_HEARTBEAT_INTERVAL_MS`.
+- worker validation enforces `WORKER_RETRY_MAX_DELAY_MS >= WORKER_RETRY_BASE_DELAY_MS`.
 - Do not commit real credentials.
 
 ## Run Commands
@@ -108,10 +125,22 @@ Start API in watch mode:
 npm run dev
 ```
 
+Start worker in watch mode:
+
+```bash
+npm run worker:dev
+```
+
 Start API once:
 
 ```bash
 npm run start
+```
+
+Start worker once:
+
+```bash
+npm run worker:start
 ```
 
 Type-check:
@@ -130,6 +159,12 @@ Run only API integration tests:
 
 ```bash
 npm run test:api
+```
+
+Run only worker tests:
+
+```bash
+npm run test:worker
 ```
 
 Repository-layer focused commands:
@@ -271,11 +306,32 @@ Security notes:
 - close Fastify instance
 - close PostgreSQL pool
 
+`src/worker/server.ts` also installs `SIGINT` and `SIGTERM` handlers and performs graceful shutdown:
+
+- stop polling for new jobs
+- wait for active executions to settle up to `WORKER_SHUTDOWN_TIMEOUT_MS`
+- abort active executions after timeout
+- close PostgreSQL pool
+
 ## Architecture Notes
 
 HTTP handlers call thin application services and do not run SQL directly.
 Application services depend on repository interfaces and remain Fastify-independent.
 This keeps authentication and identity extraction replaceable (for future Entra JWT integration) without rewriting route business logic.
 
+Worker execution runs as a separate process from the API process.
+The current queue transport is PostgreSQL (`content_jobs`) with lease metadata (`leaseOwner`, `leaseExpiresAt`, `heartbeatAt`, `nextAttemptAt`).
+Retry scheduling uses exponential backoff with a configured cap and max attempts.
+Stale processing jobs (expired leases) are periodically recovered to `retrying` or moved to `failed`.
+
+### Processing-job cancellation
+
+Queued and retrying jobs may be cancelled through the existing API.
+
+Jobs already in `processing` are not cooperatively cancelled in
+Implementation 05. The current API and domain transition rules continue to
+reject that transition. Cooperative cancellation may be added in a later
+milestone with an explicit cancellation-request state or field.
+
 Microsoft Entra authentication is not implemented yet.
-Worker execution loops and AI processing are not implemented yet.
+AI provider processing and Service Bus transport are not implemented yet.

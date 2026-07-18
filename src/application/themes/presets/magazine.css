@@ -1,0 +1,11 @@
+:root {
+  --pub-color-background: var(--pub-color-neutral-0);
+  --pub-color-surface: color-mix(in srgb, var(--pub-color-neutral-50) 80%, var(--pub-color-highlight-300));
+  --pub-color-text: var(--pub-color-neutral-900);
+  --pub-color-text-muted: var(--pub-color-neutral-700);
+  --pub-color-border: var(--pub-color-neutral-300);
+  --pub-color-accent: var(--pub-color-accent-700);
+  --pub-color-focus: var(--pub-color-accent-500);
+  --pub-font-body: var(--pub-font-family-serif);
+  --pub-font-heading: var(--pub-font-family-sans);
+}

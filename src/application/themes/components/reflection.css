@@ -1,0 +1,7 @@
+.publication-reflection,
+[data-publication-block="reflection"] {
+  background: color-mix(in srgb, var(--pub-reflection-accent) 10%, var(--pub-color-background));
+  border-inline-start: var(--pub-callout-border-width) solid var(--pub-reflection-accent);
+  border-radius: var(--pub-callout-border-radius);
+  padding: var(--pub-callout-padding);
+}

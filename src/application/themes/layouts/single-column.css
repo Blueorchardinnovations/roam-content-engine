@@ -1,0 +1,16 @@
+:root {
+  --pub-layout-columns: 1;
+}
+
+.publication {
+  max-width: var(--pub-content-max-width);
+}
+
+.publication-main {
+  column-count: var(--pub-layout-columns);
+  column-gap: var(--pub-layout-column-gap);
+}
+
+.publication-main > * {
+  break-inside: avoid;
+}

@@ -1,0 +1,11 @@
+.pub-flow > * + * {
+  margin-top: var(--pub-space-block);
+}
+
+.pub-visually-muted {
+  color: var(--pub-color-text-muted);
+}
+
+.pub-code {
+  font-family: var(--pub-font-code);
+}

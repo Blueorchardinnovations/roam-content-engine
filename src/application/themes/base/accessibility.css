@@ -1,0 +1,21 @@
+.publication :focus-visible {
+  outline: var(--pub-border-width-medium) solid var(--pub-color-focus);
+  outline-offset: var(--pub-space-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publication *,
+  .publication *::before,
+  .publication *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .publication :focus-visible {
+    outline-color: CanvasText;
+  }
+}

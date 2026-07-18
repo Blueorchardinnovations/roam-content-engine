@@ -1,0 +1,8 @@
+.publication-heading {
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+
+.publication-heading + .publication-paragraph {
+  margin-top: calc(var(--pub-space-paragraph) * -0.25);
+}

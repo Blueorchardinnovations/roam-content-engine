@@ -1,0 +1,7 @@
+.publication-call-to-action,
+[data-publication-block="call-to-action"] {
+  background: color-mix(in srgb, var(--pub-call-to-action-accent) 10%, var(--pub-color-background));
+  border-inline-start: var(--pub-callout-border-width) solid var(--pub-call-to-action-accent);
+  border-radius: var(--pub-callout-border-radius);
+  padding: var(--pub-callout-padding);
+}

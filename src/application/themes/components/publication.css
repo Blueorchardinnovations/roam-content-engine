@@ -1,0 +1,18 @@
+.publication {
+  background: var(--pub-color-background);
+  color: var(--pub-color-text);
+}
+
+.publication-main {
+  color: inherit;
+}
+
+.publication-section {
+  border-top: var(--pub-border-width-thin) solid color-mix(in srgb, var(--pub-color-border) 55%, transparent);
+  padding-top: var(--pub-space-4);
+}
+
+.publication-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}

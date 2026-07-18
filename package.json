@@ -21,6 +21,7 @@
     "test:publication": "vitest run tests/unit/publications tests/integration/publications tests/unit/workers/deterministic-transcript-processor-publication.test.ts",
     "test:html": "vitest run tests/unit/publications/html-composer.test.ts tests/unit/publications/html-schemas.test.ts tests/unit/workers/deterministic-transcript-processor-publication.test.ts tests/integration/publications/publication-worker.int.test.ts",
     "test:rendering": "vitest run tests/unit/rendering",
+    "test:themes": "vitest run tests/unit/themes",
     "test:unit": "vitest run tests/platform tests/domain",
     "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",

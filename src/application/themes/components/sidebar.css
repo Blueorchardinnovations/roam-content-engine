@@ -1,0 +1,7 @@
+.publication-sidebar,
+[data-publication-block="sidebar"] {
+  background: color-mix(in srgb, var(--pub-sidebar-accent) 12%, var(--pub-color-background));
+  border-inline-start: var(--pub-callout-border-width) solid var(--pub-sidebar-accent);
+  border-radius: var(--pub-callout-border-radius);
+  padding: var(--pub-callout-padding);
+}

@@ -1,0 +1,31 @@
+:root {
+  --pub-callout-padding: var(--pub-space-4);
+  --pub-callout-gap: var(--pub-space-3);
+  --pub-callout-border-width: var(--pub-border-width-medium);
+  --pub-callout-border-radius: var(--pub-radius-medium);
+
+  --pub-reflection-accent: var(--pub-color-brand-500);
+  --pub-prayer-accent: var(--pub-color-accent-500);
+  --pub-journal-prompt-accent: var(--pub-color-brand-700);
+  --pub-call-to-action-accent: var(--pub-color-accent-700);
+  --pub-scripture-accent: var(--pub-color-brand-300);
+  --pub-sidebar-accent: var(--pub-color-neutral-500);
+  --pub-key-takeaway-accent: var(--pub-color-accent-300);
+  --pub-highlight-accent: var(--pub-color-highlight-500);
+  --pub-warning-accent: var(--pub-color-warning-500);
+
+  --pub-navigation-gap: var(--pub-space-3);
+  --pub-navigation-padding: var(--pub-space-4);
+
+  --pub-list-item-spacing: var(--pub-space-2);
+  --pub-table-cell-padding: var(--pub-space-2) var(--pub-space-3);
+  --pub-table-row-stripe: var(--pub-color-neutral-50);
+
+  --pub-figure-padding: var(--pub-space-3);
+  --pub-figure-border-radius: var(--pub-radius-medium);
+  --pub-caption-font-size: var(--pub-font-size-caption);
+  --pub-caption-color: var(--pub-color-text-muted);
+
+  --pub-divider-color: var(--pub-color-border);
+  --pub-divider-margin: var(--pub-space-6);
+}

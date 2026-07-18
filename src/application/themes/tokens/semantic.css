@@ -1,0 +1,33 @@
+:root {
+  --pub-color-text: var(--pub-color-neutral-900);
+  --pub-color-text-muted: var(--pub-color-neutral-700);
+  --pub-color-background: var(--pub-color-neutral-0);
+  --pub-color-surface: var(--pub-color-neutral-50);
+  --pub-color-border: var(--pub-color-neutral-300);
+  --pub-color-accent: var(--pub-color-brand-500);
+  --pub-color-focus: var(--pub-color-brand-500);
+  --pub-color-link: var(--pub-color-brand-700);
+  --pub-color-link-hover: var(--pub-color-brand-500);
+
+  --pub-font-body: var(--pub-font-family-serif);
+  --pub-font-heading: var(--pub-font-family-sans);
+  --pub-font-caption: var(--pub-font-family-sans);
+  --pub-font-code: var(--pub-font-family-mono);
+
+  --pub-font-size-body: var(--pub-font-size-200);
+  --pub-font-size-caption: var(--pub-font-size-100);
+  --pub-font-size-h1: var(--pub-font-size-600);
+  --pub-font-size-h2: var(--pub-font-size-500);
+  --pub-font-size-h3: var(--pub-font-size-400);
+
+  --pub-line-height-body: 1.65;
+  --pub-line-height-heading: 1.25;
+
+  --pub-content-max-width: 72ch;
+  --pub-layout-column-gap: var(--pub-space-6);
+
+  --pub-space-section: var(--pub-space-6);
+  --pub-space-block: var(--pub-space-5);
+  --pub-space-heading: var(--pub-space-5);
+  --pub-space-paragraph: var(--pub-space-4);
+}

@@ -12,6 +12,7 @@ The codebase is organized into layered modules:
 - `src/application`: use-case services that orchestrate repository calls
 - `src/application/ai`: provider-independent AI prompt runner, usage aggregation, and pipeline orchestration
 - `src/application/publications`: normalized publication builder and CTA guide template
+- `src/application/themes`: deterministic publication theme registry and CSS package assembly
 - `src/api`: Fastify HTTP API, validation, middleware, serializers, and error handling
 - `src/worker`: worker runtime composition and process entrypoint
 - `src/application/workers`: worker loop, execution orchestration, stale recovery, retry policy
@@ -330,6 +331,116 @@ Worker integration behavior:
 - render cancellation preserves existing worker cancellation semantics
 - failed rendering does not persist partial render artifacts or completion events
 
+## Publication Theme System And CSS Package Foundation
+
+Implementation 11 adds a deterministic CSS package layer without changing the semantic HTML rendering architecture.
+
+Architecture boundary:
+
+- existing semantic pipeline remains unchanged:
+  - `HtmlDocument -> HtmlMarkupSerializer -> deterministic HTML5 -> HtmlMarkupRenderer -> HTML RenderArtifact`
+- new styling pipeline is parallel and reusable:
+  - `Theme ID + Density ID + Layout ID -> PublicationThemeRegistry -> PublicationCssPackager -> deterministic CSS package`
+
+Current integration boundary:
+
+- CSS is not injected into HTML artifacts
+- HTML artifact payload representation remains `html-markup`
+- HTML artifact MIME type remains `text/html; charset=utf-8`
+- HTML artifact extension remains `.html`
+- CSS package output is an internal reusable application service output (string)
+
+Theme module layout:
+
+- `src/application/themes/types.ts`: controlled IDs and contracts
+- `src/application/themes/registry.ts`: typed theme registry and metadata
+- `src/application/themes/css-packager.ts`: deterministic CSS layer assembly
+- `src/application/themes/tokens`: primitive, semantic, and component token tiers
+- `src/application/themes/base`: reset, document, typography, accessibility, utilities
+- `src/application/themes/layouts`: `single-column`, `two-column`, `wide-content`
+- `src/application/themes/components`: shared semantic component styles
+- `src/application/themes/density`: `comfortable`, `standard`, `compact`, `high-density`
+- `src/application/themes/presets`: canonical theme token overrides
+
+Canonical theme IDs:
+
+- `classic`
+- `modern`
+- `ministry`
+- `workbook`
+- `magazine`
+- `dark`
+- `minimal`
+
+Display-label mapping:
+
+- `ministry` maps to display label `Ministry Classic`
+- no incompatible persisted theme ID is introduced for that label
+
+Token tiers:
+
+- primitive tokens (`--pub-*` reusable value scales)
+- semantic tokens (`--pub-*` intent aliases)
+- component tokens (`--pub-*` component-level styling slots)
+
+Deterministic CSS layer order:
+
+1. primitive tokens
+2. semantic tokens
+3. component token defaults
+4. reset
+5. base document rules
+6. typography
+7. accessibility
+8. utilities
+9. selected layout
+10. shared components
+11. selected density profile
+12. selected theme preset
+
+Selector strategy:
+
+- style semantic hooks emitted by the serializer (`.publication-*` and `[data-publication-block="..."]`)
+- do not depend on arbitrary generated classes
+- do not depend on positional selectors
+
+Accessibility rules:
+
+- focus indicators are preserved (`:focus-visible` styles are required)
+- browser zoom remains supported (relative sizing, no fixed-height content clipping)
+- reduced-motion compatibility is preserved
+- forced-colors compatibility is preserved where practical
+- dark theme declares `color-scheme: dark`
+
+Explicit non-goals in this implementation:
+
+- no CSS injection into HTML artifacts
+- no paged-media CSS
+- no `@page` rules
+- no page headers, footers, or page numbers
+- no PDF generation
+- no EPUB generation
+- no Vivliostyle runtime integration
+
+Future integration targets:
+
+- publish-engine embedding or linking
+- preview application linking
+- Vivliostyle consumption
+- EPUB styling reuse
+
+Implementation 11 creates a deterministic CSS package foundation.
+
+It does not inject CSS into the HTML artifact.
+
+It does not paginate content.
+
+It does not generate PDF or EPUB.
+
+It does not define Letter, A4, or Tabloid pages.
+
+The CSS package is intended for future preview, Publish Engine, Vivliostyle, and EPUB integrations.
+
 Current CTA template policy:
 
 - no invented prayer, CTA, journal, or next-step prose
@@ -343,7 +454,7 @@ Current limitations:
 - production EPUB rendering is not implemented.
 - production PDF rendering is not implemented.
 - production DOCX rendering is not implemented.
-- CSS generation is not implemented.
+- CSS package generation is implemented as a deterministic internal styling foundation.
 - browser-preview rendering is not implemented.
 - Print layout is not implemented.
 - HTML passthrough rendering exists only as an architectural placeholder that emits structured JSON artifacts (not browser-ready HTML markup).

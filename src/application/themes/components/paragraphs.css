@@ -1,0 +1,7 @@
+.publication-paragraph {
+  max-width: 70ch;
+}
+
+.publication-paragraph:last-child {
+  margin-bottom: 0;
+}

@@ -1,0 +1,7 @@
+.publication-journal-prompt,
+[data-publication-block="journal-prompt"] {
+  background: color-mix(in srgb, var(--pub-journal-prompt-accent) 10%, var(--pub-color-background));
+  border-inline-start: var(--pub-callout-border-width) solid var(--pub-journal-prompt-accent);
+  border-radius: var(--pub-callout-border-radius);
+  padding: var(--pub-callout-padding);
+}

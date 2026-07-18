@@ -1,0 +1,23 @@
+.publication {
+  color: var(--pub-color-text);
+  background: var(--pub-color-background);
+  font-family: var(--pub-font-body);
+  font-size: var(--pub-font-size-body);
+  line-height: var(--pub-line-height-body);
+  margin-inline: auto;
+  max-width: var(--pub-content-max-width);
+  overflow-wrap: anywhere;
+  padding: var(--pub-space-5);
+}
+
+.publication-main {
+  display: block;
+}
+
+.publication-section {
+  margin-block: var(--pub-space-section);
+}
+
+.publication-block {
+  margin-block: var(--pub-space-block);
+}

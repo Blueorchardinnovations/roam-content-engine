@@ -1,0 +1,7 @@
+.publication-highlight,
+[data-publication-block="highlight"] {
+  background: color-mix(in srgb, var(--pub-highlight-accent) 18%, var(--pub-color-background));
+  border-inline-start: var(--pub-callout-border-width) solid var(--pub-highlight-accent);
+  border-radius: var(--pub-callout-border-radius);
+  padding: var(--pub-callout-padding);
+}

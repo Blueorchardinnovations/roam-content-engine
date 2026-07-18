@@ -1,0 +1,11 @@
+:root {
+  --pub-line-height-body: 1.52;
+  --pub-space-section: var(--pub-space-5);
+  --pub-space-block: var(--pub-space-4);
+  --pub-space-heading: var(--pub-space-4);
+  --pub-space-paragraph: var(--pub-space-3);
+  --pub-callout-padding: var(--pub-space-3);
+  --pub-list-item-spacing: var(--pub-space-1);
+  --pub-table-cell-padding: var(--pub-space-1) var(--pub-space-2);
+  --pub-navigation-gap: var(--pub-space-2);
+}

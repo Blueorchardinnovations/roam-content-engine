@@ -1,0 +1,7 @@
+.publication-prayer,
+[data-publication-block="prayer"] {
+  background: color-mix(in srgb, var(--pub-prayer-accent) 10%, var(--pub-color-background));
+  border-inline-start: var(--pub-callout-border-width) solid var(--pub-prayer-accent);
+  border-radius: var(--pub-callout-border-radius);
+  padding: var(--pub-callout-padding);
+}

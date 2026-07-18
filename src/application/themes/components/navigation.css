@@ -1,0 +1,20 @@
+.publication-navigation {
+  background: color-mix(in srgb, var(--pub-color-surface) 92%, transparent);
+  border: var(--pub-border-width-thin) solid var(--pub-color-border);
+  border-radius: var(--pub-radius-medium);
+  margin: 0 0 var(--pub-space-block);
+  padding: var(--pub-navigation-padding);
+}
+
+.publication-navigation.class-toc,
+.publication-navigation[id="table-of-contents"] {
+  display: block;
+}
+
+.publication-navigation .publication-list,
+.publication-navigation ol,
+.publication-navigation ul {
+  display: grid;
+  gap: var(--pub-navigation-gap);
+  margin: 0;
+}

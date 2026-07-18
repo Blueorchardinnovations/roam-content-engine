@@ -1,0 +1,18 @@
+.publication-table {
+  border-collapse: collapse;
+  border: var(--pub-border-width-thin) solid var(--pub-color-border);
+  margin: 0 0 var(--pub-space-block);
+  width: 100%;
+}
+
+.publication-table th,
+.publication-table td {
+  border: var(--pub-border-width-thin) solid var(--pub-color-border);
+  padding: var(--pub-table-cell-padding);
+  text-align: left;
+  vertical-align: top;
+}
+
+.publication-table tbody tr:nth-child(even) {
+  background: var(--pub-table-row-stripe);
+}

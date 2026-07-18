@@ -1,0 +1,5 @@
+.publication hr {
+  border: 0;
+  border-top: var(--pub-border-width-thin) solid var(--pub-divider-color);
+  margin: var(--pub-divider-margin) 0;
+}

@@ -1,0 +1,19 @@
+.publication-figure {
+  background: var(--pub-color-surface);
+  border: var(--pub-border-width-thin) solid var(--pub-color-border);
+  border-radius: var(--pub-figure-border-radius);
+  margin: 0 0 var(--pub-space-block);
+  padding: var(--pub-figure-padding);
+}
+
+.publication-figure img {
+  height: auto;
+  max-width: 100%;
+}
+
+.publication-caption {
+  color: var(--pub-caption-color);
+  font-family: var(--pub-font-caption);
+  font-size: var(--pub-caption-font-size);
+  margin-top: var(--pub-space-2);
+}

@@ -1,0 +1,8 @@
+.publication-scripture,
+[data-publication-block="scripture"] {
+  background: color-mix(in srgb, var(--pub-scripture-accent) 10%, var(--pub-color-background));
+  border-inline-start: var(--pub-callout-border-width) solid var(--pub-scripture-accent);
+  border-radius: var(--pub-callout-border-radius);
+  font-style: italic;
+  padding: var(--pub-callout-padding);
+}

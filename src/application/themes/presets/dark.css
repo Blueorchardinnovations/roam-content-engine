@@ -1,0 +1,23 @@
+:root {
+  color-scheme: dark;
+  --pub-color-background: #161d28;
+  --pub-color-surface: #1f2a39;
+  --pub-color-text: #eef4ff;
+  --pub-color-text-muted: #b6c0d2;
+  --pub-color-border: #46546b;
+  --pub-color-accent: #8fb5ff;
+  --pub-color-focus: #a8cbff;
+  --pub-color-link: #c0d8ff;
+  --pub-color-link-hover: #d8e6ff;
+  --pub-font-body: var(--pub-font-family-serif);
+  --pub-font-heading: var(--pub-font-family-sans);
+  --pub-reflection-accent: #7ea0f2;
+  --pub-prayer-accent: #72d2b6;
+  --pub-journal-prompt-accent: #87a9ef;
+  --pub-call-to-action-accent: #68d0b0;
+  --pub-scripture-accent: #89a5dd;
+  --pub-sidebar-accent: #95a1b7;
+  --pub-key-takeaway-accent: #79d6be;
+  --pub-highlight-accent: #c7a33a;
+  --pub-warning-accent: #db9a30;
+}

@@ -1,0 +1,8 @@
+.publication-list {
+  margin: 0 0 var(--pub-space-block);
+  padding-inline-start: var(--pub-space-5);
+}
+
+.publication-list li + li {
+  margin-top: var(--pub-list-item-spacing);
+}

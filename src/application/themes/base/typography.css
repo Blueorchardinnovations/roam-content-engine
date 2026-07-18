@@ -1,0 +1,40 @@
+.publication-heading {
+  color: var(--pub-color-text);
+  font-family: var(--pub-font-heading);
+  line-height: var(--pub-line-height-heading);
+  margin: 0 0 var(--pub-space-heading);
+}
+
+h1.publication-heading {
+  font-size: var(--pub-font-size-h1);
+}
+
+h2.publication-heading {
+  font-size: var(--pub-font-size-h2);
+}
+
+h3.publication-heading,
+h4.publication-heading,
+h5.publication-heading,
+h6.publication-heading {
+  font-size: var(--pub-font-size-h3);
+}
+
+.publication-paragraph {
+  color: var(--pub-color-text);
+  margin: 0 0 var(--pub-space-paragraph);
+}
+
+.publication a {
+  color: var(--pub-color-link);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.12em;
+}
+
+.publication a:hover {
+  color: var(--pub-color-link-hover);
+}
+
+.publication a:visited {
+  color: var(--pub-color-link);
+}

@@ -1,0 +1,18 @@
+:root {
+  --pub-content-max-width: 92ch;
+  --pub-layout-columns: 1;
+}
+
+.publication-main {
+  column-count: var(--pub-layout-columns);
+}
+
+.publication-figure {
+  width: min(100%, 84ch);
+}
+
+.publication-table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+}

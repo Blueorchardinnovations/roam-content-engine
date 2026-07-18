@@ -1,0 +1,54 @@
+:root {
+  --pub-font-family-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Garamond, serif;
+  --pub-font-family-sans: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
+  --pub-font-family-mono: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --pub-font-size-100: 0.875rem;
+  --pub-font-size-200: 1rem;
+  --pub-font-size-300: 1.125rem;
+  --pub-font-size-400: 1.25rem;
+  --pub-font-size-500: 1.5rem;
+  --pub-font-size-600: 1.875rem;
+
+  --pub-space-1: 0.25rem;
+  --pub-space-2: 0.5rem;
+  --pub-space-3: 0.75rem;
+  --pub-space-4: 1rem;
+  --pub-space-5: 1.5rem;
+  --pub-space-6: 2rem;
+  --pub-space-7: 3rem;
+
+  --pub-radius-small: 0.25rem;
+  --pub-radius-medium: 0.5rem;
+  --pub-radius-large: 0.75rem;
+
+  --pub-border-width-thin: 1px;
+  --pub-border-width-medium: 2px;
+
+  --pub-shadow-small: 0 1px 2px rgb(0 0 0 / 0.08);
+  --pub-shadow-medium: 0 8px 24px rgb(0 0 0 / 0.12);
+
+  --pub-color-neutral-0: #ffffff;
+  --pub-color-neutral-50: #f8f9fb;
+  --pub-color-neutral-100: #eef1f5;
+  --pub-color-neutral-300: #cfd6e0;
+  --pub-color-neutral-500: #788497;
+  --pub-color-neutral-700: #39465b;
+  --pub-color-neutral-900: #121923;
+
+  --pub-color-brand-300: #7d98d8;
+  --pub-color-brand-500: #375db5;
+  --pub-color-brand-700: #233f7f;
+
+  --pub-color-accent-300: #6cb8a2;
+  --pub-color-accent-500: #2f8c74;
+  --pub-color-accent-700: #1e6452;
+
+  --pub-color-warning-300: #f3d27b;
+  --pub-color-warning-500: #b87a12;
+  --pub-color-warning-700: #754b00;
+
+  --pub-color-highlight-300: #f8eb86;
+  --pub-color-highlight-500: #a78300;
+  --pub-color-highlight-700: #6a5300;
+}

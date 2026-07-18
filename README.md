@@ -75,6 +75,12 @@ The temporary `x-tenant-id` header is a development identity adapter only. It is
 - npm
 - Docker (for local PostgreSQL)
 
+Integration test execution note:
+
+- integration tests run with one worker because the suite uses a shared PostgreSQL integration database and several fixtures perform shared cleanup
+- parallel file execution can cause cross-test job acquisition and foreign-key cleanup races in test infrastructure
+- this is a test-environment rule and does not imply production runtime serialization
+
 ## Local PostgreSQL
 
 Start PostgreSQL:
@@ -376,6 +382,39 @@ Compatibility and persistence:
 - no database migration was required because payload representation is stored inside application-validated JSON
 - worker renderer selection now branches explicitly to `HtmlPassthroughRenderer`, `HtmlMarkupRenderer`, and `StyledHtmlRenderer`
 - the styled path is covered by renderer tests, schema tests, worker-selection tests, and worker integration tests
+
+## External Publish Engine Client Integration
+
+Implementation 14 adds a reusable outbound Publish Engine client boundary in infrastructure.
+
+Current scope:
+
+- typed client interface: `submitRender`, `submitCtaRender`, `getJob`, `waitForJob`, and `getDownload`
+- strict DTO and schema validation for requests and remote responses
+- explicit styled HTML source artifact validation (payload representation, UTF-8 byte size, SHA-256 checksum)
+- environment-driven configuration parser with strict URL normalization and HTTPS enforcement (localhost HTTP exception for local testing)
+- injected access-token provider boundary (`PublishEngineAccessTokenProvider`) without Azure Identity coupling
+- injected transport and timing dependencies (`fetch`, `sleep`, `now`, `random`) for deterministic tests
+- bounded retries with exponential backoff and jitter support, status-aware retry rules, idempotency-aware submission safety, and `Retry-After` parsing
+- request timeout and caller cancellation propagation through `AbortSignal`
+- structured error taxonomy for authentication, transport, timeout, protocol/schema mismatch, retry exhaustion, job terminal failures, and idempotency conflict
+- redacted/hashed logging for sensitive request identifiers
+
+Security and reliability constraints:
+
+- no bearer token values are logged
+- no request or response payload bodies are logged
+- no arbitrary caller-supplied headers are forwarded
+- strict correlation-id and idempotency-key header validation blocks control characters
+- download URL validation enforces HTTPS except explicit loopback local addresses
+
+Explicit non-goals in this implementation:
+
+- no worker orchestration activation of Publish Engine calls
+- no database schema or persistence changes
+- no local browser/PDF/EPUB generation
+- no artifact upload/storage integration
+- no real external network calls in tests
 
 ## Publication Theme System And CSS Package Foundation
 

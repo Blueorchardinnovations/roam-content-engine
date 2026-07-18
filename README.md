@@ -161,6 +161,9 @@ PUBLISH_JOB_CONCURRENCY=1
 PUBLISH_JOB_SHUTDOWN_TIMEOUT_MS=30000
 PUBLISH_ENGINE_BASE_URL=https://publish-engine.example
 PUBLISH_ENGINE_SCOPE=api://publish-engine/.default
+PUBLISH_ENGINE_IDENTITY_MODE=managed-identity
+PUBLISH_ENGINE_MANAGED_IDENTITY_CLIENT_ID=
+PUBLISH_ENGINE_TOKEN_REFRESH_SKEW_MS=300000
 PUBLISH_ENGINE_REQUEST_TIMEOUT_MS=30000
 PUBLISH_ENGINE_MAX_RETRIES=3
 PUBLISH_ENGINE_RETRY_BASE_DELAY_MS=250
@@ -170,10 +173,19 @@ PUBLISH_ENGINE_RETRY_MAX_DELAY_MS=5000
 Publish worker notes:
 
 - `PUBLISH_WORKER_ENABLED=false` keeps the dedicated publish worker process inert by default.
-- enabling the publish worker flag alone is insufficient; no production access-token provider is composed in this milestone.
-- static bearer-token authentication is intentionally not supported in production runtime wiring.
-- publish worker startup fails closed with `PUBLISH_ENGINE_CONFIGURATION_ERROR` until a supported identity composition is added in a later phase.
-- tests use fake publish clients/providers and do not call a real Publish Engine.
+- enabling the publish worker requires `PUBLISH_ENGINE_BASE_URL`, `PUBLISH_ENGINE_SCOPE`, and `PUBLISH_ENGINE_IDENTITY_MODE`.
+- supported publish identity modes are `managed-identity` and `default-azure-credential`.
+- `managed-identity` is the production Azure Container Apps mode and uses `ManagedIdentityCredential`.
+- in managed-identity mode, `PUBLISH_ENGINE_MANAGED_IDENTITY_CLIENT_ID` enables user-assigned identity; if absent, system-assigned identity is used.
+- if dedicated `PUBLISH_ENGINE_MANAGED_IDENTITY_CLIENT_ID` is empty, `AZURE_CLIENT_ID` is accepted as a compatibility fallback.
+- `default-azure-credential` is for explicit local development and uses `DefaultAzureCredential`.
+- static bearer-token authentication is intentionally not supported.
+- client-secret authentication is not required for the standard production deployment path.
+- publish worker startup fails closed with `PUBLISH_ENGINE_CONFIGURATION_ERROR` when enabled with missing or invalid identity settings.
+- publish worker identity token acquisition is cached in memory with refresh-before-expiry behavior.
+- token refresh uses bounded skew (default 5 minutes) with proportional handling for short-lived tokens.
+- concurrent token refresh requests are deduplicated through a single in-flight refresh operation.
+- tests use fakes/mocks and do not call Azure identity endpoints or a real Publish Engine.
 - publish worker validation enforces `PUBLISH_JOB_LEASE_DURATION_MS > PUBLISH_JOB_HEARTBEAT_INTERVAL_MS`.
 - publish worker validation enforces both retry max values to be greater than or equal to their corresponding base values.
 - use `npm run worker:publish` or `npm run worker:publish:dev` to run the dedicated publish worker.
@@ -184,6 +196,15 @@ Publish worker notes:
 - publish failures do not mutate completed content-job state.
 - migration `0002_curvy_ultimo.sql` is required for publish-job tables and indexes.
 - integration and publish-job tests require a migrated PostgreSQL database.
+
+Future infrastructure checklist (outside Implementation 16):
+
+1. assign a managed identity to the publish-worker Azure Container App
+2. expose/configure the Publish Engine Microsoft Entra application scope
+3. grant the publish-worker identity access to the Publish Engine application
+4. configure `PUBLISH_ENGINE_SCOPE` and `PUBLISH_ENGINE_IDENTITY_MODE`
+5. enable `PUBLISH_WORKER_ENABLED=true`
+6. validate authentication in a controlled environment before production rollout
 
 ## AI Processing Pipeline
 
@@ -433,7 +454,7 @@ Current scope:
 - strict DTO and schema validation for requests and remote responses
 - explicit styled HTML source artifact validation (payload representation, UTF-8 byte size, SHA-256 checksum)
 - environment-driven configuration parser with strict URL normalization and HTTPS enforcement (localhost HTTP exception for local testing)
-- injected access-token provider boundary (`PublishEngineAccessTokenProvider`) without Azure Identity coupling
+- injected access-token provider boundary (`PublishEngineAccessTokenProvider`) with Azure Identity-backed composition at the publish-worker runtime boundary
 - injected transport and timing dependencies (`fetch`, `sleep`, `now`, `random`) for deterministic tests
 - bounded retries with exponential backoff and jitter support, status-aware retry rules, idempotency-aware submission safety, and `Retry-After` parsing
 - request timeout and caller cancellation propagation through `AbortSignal`

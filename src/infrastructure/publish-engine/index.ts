@@ -1,4 +1,5 @@
 export * from './publish-engine-access-token-provider.js';
+export * from './azure-publish-engine-access-token-provider.js';
 export * from './publish-engine-artifact-validator.js';
 export * from './publish-engine-client.js';
 export * from './publish-engine-config.js';

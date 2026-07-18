@@ -83,6 +83,12 @@ const environmentSchema = z.object({
 
   PUBLISH_ENGINE_SCOPE: z.preprocess(trimString, z.string().default('')),
 
+  PUBLISH_ENGINE_IDENTITY_MODE: z.preprocess(trimString, z.string().default('')),
+
+  PUBLISH_ENGINE_MANAGED_IDENTITY_CLIENT_ID: z.preprocess(trimString, z.string().default('')),
+
+  PUBLISH_ENGINE_TOKEN_REFRESH_SKEW_MS: z.preprocess(trimString, z.string().default('300000')),
+
   PUBLISH_ENGINE_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().max(300000).default(30000),
 
   PUBLISH_ENGINE_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(3),
@@ -202,6 +208,9 @@ export interface Environment {
   readonly publishJobShutdownTimeoutMs: number;
   readonly publishEngineBaseUrl: string;
   readonly publishEngineScope: string;
+  readonly publishEngineIdentityMode: string;
+  readonly publishEngineManagedIdentityClientId: string;
+  readonly publishEngineTokenRefreshSkewMs: string;
   readonly publishEngineRequestTimeoutMs: number;
   readonly publishEngineMaxRetries: number;
   readonly publishEngineRetryBaseDelayMs: number;
@@ -257,6 +266,11 @@ export const environment: Environment = {
     parsedEnvironment.data.PUBLISH_JOB_SHUTDOWN_TIMEOUT_MS,
   publishEngineBaseUrl: parsedEnvironment.data.PUBLISH_ENGINE_BASE_URL,
   publishEngineScope: parsedEnvironment.data.PUBLISH_ENGINE_SCOPE,
+  publishEngineIdentityMode: parsedEnvironment.data.PUBLISH_ENGINE_IDENTITY_MODE,
+  publishEngineManagedIdentityClientId:
+    parsedEnvironment.data.PUBLISH_ENGINE_MANAGED_IDENTITY_CLIENT_ID,
+  publishEngineTokenRefreshSkewMs:
+    parsedEnvironment.data.PUBLISH_ENGINE_TOKEN_REFRESH_SKEW_MS,
   publishEngineRequestTimeoutMs:
     parsedEnvironment.data.PUBLISH_ENGINE_REQUEST_TIMEOUT_MS,
   publishEngineMaxRetries: parsedEnvironment.data.PUBLISH_ENGINE_MAX_RETRIES,

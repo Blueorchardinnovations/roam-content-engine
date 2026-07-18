@@ -8,6 +8,7 @@ export type RenderFormat = (typeof renderFormats)[number];
 export const renderArtifactPayloadRepresentations = [
   'structured-json',
   'html-markup',
+  'styled-html',
   'binary',
   'storage-reference'
 ] as const;
@@ -16,6 +17,23 @@ export type RenderArtifactPayloadRepresentation =
   (typeof renderArtifactPayloadRepresentations)[number];
 
 export type RenderTheme = PublicationTheme;
+
+export type PublicationDensityId =
+  | 'comfortable'
+  | 'standard'
+  | 'compact'
+  | 'high-density';
+
+export type PublicationLayoutId =
+  | 'single-column'
+  | 'two-column'
+  | 'wide-content';
+
+export type StyledHtmlPresentationOptions = {
+  themeId?: RenderTheme;
+  densityId?: PublicationDensityId;
+  layoutId?: PublicationLayoutId;
+};
 
 export type RenderRequestMetadata = {
   title: string;
@@ -36,6 +54,7 @@ export type RenderRequestMetadata = {
 export type RenderOptions = {
   format: RenderFormat;
   theme: RenderTheme;
+  presentation?: StyledHtmlPresentationOptions;
 };
 
 export type RenderRequest = {

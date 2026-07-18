@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { AIPipeline } from '../../../src/application/ai/pipeline.js';
@@ -16,7 +18,7 @@ import { clearAllWorkerData, clearWorkerScope, createQueuedJob, getJobById, inte
 function buildSuccessWorker(
   aiPipeline: AIPipeline,
   options?: {
-    rendererSelection?: 'structured-json' | 'html-markup';
+    rendererSelection?: 'structured-json' | 'html-markup' | 'styled-html';
     createRenderArtifactId?: () => string;
   }
 ) {
@@ -143,6 +145,71 @@ describe.sequential('publication worker integration', () => {
       expect(htmlDocument?.metadata.theme).toBe(publication?.metadata.theme);
       expect(htmlDocument?.head.lang).toBe(publication?.document.language);
       expect(htmlDocument?.body.sections.length).toBeGreaterThan(0);
+
+      const events = await listJobEvents({
+        tenantId: created.scope.tenantId,
+        jobId: created.job.id
+      });
+
+      expect(events.filter((event) => event.eventType === 'job-completed')).toHaveLength(1);
+    } finally {
+      await worker.stop();
+      await runPromise;
+      await clearWorkerScope(created.scope.tenantId);
+    }
+  });
+
+  it('persists a styled-html render artifact with exact utf-8 metadata', async () => {
+    const created = await createQueuedJob({
+      idempotencyKey: 'publication-styled-html-1',
+      transcriptText: 'Line one\n\nLine two with emoji 🚀 and RTL مرحبا.'
+    });
+
+    const worker = buildSuccessWorker(new AIPipeline(
+      new MockAIProvider({
+        mode: 'success',
+        now: () => new Date('2026-01-01T00:00:00.000Z')
+      }),
+      '1.0.0',
+      1000
+    ), {
+      rendererSelection: 'styled-html',
+      createRenderArtifactId: () => 'artifact_styled_publication_1'
+    });
+
+    const runPromise = worker.start();
+
+    try {
+      const completed = await waitForJobStatus({
+        tenantId: created.scope.tenantId,
+        jobId: created.job.id,
+        status: 'completed'
+      });
+
+      const publication = completed.result?.publication;
+      const renderArtifact = completed.result?.renderArtifact;
+      expect(publication).toBeDefined();
+      expect(renderArtifact).toBeDefined();
+      expect(renderArtifact?.metadata.payloadRepresentation).toBe('styled-html');
+      expect(renderArtifact?.metadata.mimeType).toBe('text/html; charset=utf-8');
+      expect(renderArtifact?.metadata.fileExtension).toBe('.html');
+
+      const payload = renderArtifact?.content?.serializedDocument ?? '';
+      const bytes = Buffer.from(payload, 'utf8');
+      const expectedTheme = publication?.metadata.theme;
+
+      expect(payload).toContain('<!doctype html>');
+      expect((payload.match(/<style>/g) ?? [])).toHaveLength(1);
+      expect(payload).toContain(`data-publication-theme="${expectedTheme}"`);
+      expect(payload).toContain('data-publication-density="standard"');
+      expect(payload).toContain('data-publication-layout="single-column"');
+      expect(payload).toContain(publication?.metadata.title ?? '');
+      expect(payload).toContain(publication?.cover.title ?? '');
+      expect(payload).not.toContain('<script');
+      expect(payload).not.toContain('@page');
+
+      expect(renderArtifact?.metadata.byteSize).toBe(bytes.byteLength);
+      expect(renderArtifact?.metadata.checksumSha256).toBe(createHash('sha256').update(bytes).digest('hex'));
 
       const events = await listJobEvents({
         tenantId: created.scope.tenantId,

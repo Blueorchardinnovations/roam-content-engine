@@ -229,6 +229,10 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
         }
 
         const publication = publicationResult;
+        const rendererCapabilities = this.publicationRenderer.getCapabilities();
+        const presentation = rendererCapabilities.renderer === 'styled-html'
+          ? { themeId: publication.metadata.theme }
+          : undefined;
 
         try {
           renderArtifactResult = this.publicationRenderer.render(
@@ -253,7 +257,8 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
               },
               options: {
                 format: 'html',
-                theme: publication.metadata.theme
+                theme: publication.metadata.theme,
+                ...(presentation ? { presentation } : {})
               }
             },
             input.signal

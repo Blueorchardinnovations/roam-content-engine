@@ -96,6 +96,45 @@ describe('transcript processing result schema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts styled-html render artifact output when valid', () => {
+    const result = transcriptProcessingResultSchema.safeParse({
+      schemaVersion: '1.0',
+      sourceVersionId: 'srcver_01JXYZ12345678901234567890',
+      contentHash: 'abc123',
+      wordCount: 100,
+      characterCount: 500,
+      paragraphCount: 5,
+      lineCount: 12,
+      processedAt: '2026-01-01T00:00:00.000Z',
+      renderArtifact: {
+        metadata: {
+          artifactId: 'artifact_3',
+          status: 'ready',
+          format: 'html',
+          payloadRepresentation: 'styled-html',
+          mimeType: 'text/html; charset=utf-8',
+          fileExtension: '.html',
+          checksumSha256: 'd2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2',
+          byteSize: 42,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          warnings: [],
+          errors: []
+        },
+        content: {
+          kind: 'inline',
+          encoding: 'utf-8',
+          bytesBase64: 'PCFkb2N0eXBlIGh0bWw+PHRpdGxlPlN0eWxlZDwvdGl0bGU+',
+          serializedDocument: '<!doctype html><title>Styled</title>'
+        },
+        storage: {
+          kind: 'none'
+        }
+      }
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('rejects invalid schemaVersion', () => {
     const result = transcriptProcessingResultSchema.safeParse({
       schemaVersion: '2.0',

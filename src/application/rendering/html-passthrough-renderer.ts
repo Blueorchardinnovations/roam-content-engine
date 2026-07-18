@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type {
   RenderArtifact,
   RenderFormat,
@@ -10,6 +8,7 @@ import type {
 import { assertSafeAssetUrl } from '../../platform/security/url-safety.js';
 import { renderRequestSchema } from '../../schemas/rendering/rendering-schema.js';
 import type { PublicationRenderer } from './publication-renderer.js';
+import { createTextRenderArtifact } from './text-render-artifact-builder.js';
 import {
   InvalidRenderAssetError,
   RenderCancelledError,
@@ -187,33 +186,15 @@ export class HtmlPassthroughRenderer implements PublicationRenderer {
 
     try {
       const serializedDocument = canonicalJsonStringify(request.htmlDocument as unknown as JsonValue);
-      const bytes = Buffer.from(serializedDocument, 'utf8');
-      const checksumSha256 = createHash('sha256').update(bytes).digest('hex');
-
-      return {
-        metadata: {
-          artifactId: this.createArtifactId(),
-          status: 'ready',
-          format: request.options.format,
-          payloadRepresentation: 'structured-json',
-          mimeType: 'application/json',
-          fileExtension: '.json',
-          checksumSha256,
-          byteSize: bytes.byteLength,
-          createdAt: this.now().toISOString(),
-          warnings: [],
-          errors: []
-        },
-        content: {
-          kind: 'inline',
-          encoding: 'utf-8',
-          bytesBase64: bytes.toString('base64'),
-          serializedDocument
-        },
-        storage: {
-          kind: 'none'
-        }
-      };
+      return createTextRenderArtifact({
+        artifactId: this.createArtifactId(),
+        createdAt: this.now().toISOString(),
+        format: request.options.format,
+        payloadRepresentation: 'structured-json',
+        mimeType: 'application/json',
+        fileExtension: '.json',
+        serializedDocument
+      });
     } catch (error) {
       if (
         error instanceof RenderCancelledError ||

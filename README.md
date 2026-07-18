@@ -256,15 +256,19 @@ Rendering format model:
 
 - declared formats: `html`, `pdf`, `epub`, `docx`, `markdown`
 - current renderer implementation support: `html` only
-- explicit renderer selection values: `structured-json` and `html-markup`
+- explicit renderer selection values: `structured-json`, `html-markup`, and `styled-html`
 - `structured-json` selects `HtmlPassthroughRenderer`
 - `html-markup` selects `HtmlMarkupRenderer`
+- `styled-html` selects `StyledHtmlRenderer`
 - current placeholder artifact payload representation: `structured-json`
 - current placeholder artifact MIME type: `application/json`
 - current placeholder artifact extension: `.json`
 - current HTML markup artifact payload representation: `html-markup`
 - current HTML markup artifact MIME type: `text/html; charset=utf-8`
 - current HTML markup artifact extension: `.html`
+- current styled HTML artifact payload representation: `styled-html`
+- current styled HTML artifact MIME type: `text/html; charset=utf-8`
+- current styled HTML artifact extension: `.html`
 - non-HTML requests fail with stable `UNSUPPORTED_FORMAT`
 
 Theme model:
@@ -285,6 +289,7 @@ Render artifact model distinguishes:
 - artifact metadata (id/format/mime/extension/checksum/byte-size/created-at/warnings/errors)
 - inline payload content (deterministic UTF-8 canonical JSON representation of the validated semantic HtmlDocument)
 - inline payload content for markup renderer (deterministic UTF-8 canonical semantic HTML5 markup)
+- inline payload content for styled renderer (deterministic UTF-8 canonical standalone HTML5 markup with embedded CSS)
 - persisted storage reference (`none` for passthrough renderer)
 
 Markup serializer and renderer responsibilities:
@@ -330,6 +335,47 @@ Worker integration behavior:
 - deterministic rendering failures are treated as permanent worker failures (no retry scheduling)
 - render cancellation preserves existing worker cancellation semantics
 - failed rendering does not persist partial render artifacts or completion events
+
+## Styled HTML Render Artifact Integration
+
+Implementation 13 exposes styled standalone HTML as an explicit render artifact.
+
+The `styled-html` representation is distinct from `html-markup`.
+
+StyledHtmlRenderer delegates document composition to PublicationPackageComposer.
+
+The implementation extends application types and schemas but does not require a database migration because render results are stored as application-validated JSON.
+
+It does not render HTML in a browser.
+
+It does not paginate content.
+
+It does not generate PDF or EPUB.
+
+It does not upload artifacts or create storage references.
+
+It does not replace the existing HTML markup renderer.
+
+Renderer contract summary:
+
+- `structured-json` remains the deterministic structured JSON artifact path
+- `html-markup` remains the deterministic unstyled semantic HTML artifact path
+- `styled-html` is the deterministic standalone HTML artifact path with embedded publication CSS
+- the styled renderer accepts a controlled presentation block with `themeId`, `densityId`, and `layoutId`
+- omitted styled presentation values resolve through the packaging layer defaults (`themeId` from the HtmlDocument, `standard`, and `single-column`)
+- unknown explicit presentation identifiers fail under strict schema and packaging validation
+- payload bytes, byte size, and SHA-256 checksum are all computed from the final UTF-8 standalone HTML payload
+- artifact ID and completion timestamp may still vary when existing renderer contracts require them
+- accessibility semantics remain unchanged because the renderer reuses the existing semantic HTML document model
+- security boundaries remain unchanged: no scripts, no external stylesheets, no browser execution, no pagination, and no active content injection
+
+Compatibility and persistence:
+
+- existing `structured-json`, `html-markup`, `binary`, and `storage-reference` validation remains intact
+- content-job results continue to be validated as application-level JSON payloads
+- no database migration was required because payload representation is stored inside application-validated JSON
+- worker renderer selection now branches explicitly to `HtmlPassthroughRenderer`, `HtmlMarkupRenderer`, and `StyledHtmlRenderer`
+- the styled path is covered by renderer tests, schema tests, worker-selection tests, and worker integration tests
 
 ## Publication Theme System And CSS Package Foundation
 

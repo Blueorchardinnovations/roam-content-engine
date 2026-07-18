@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+import {
+  publicationDensityIds,
+  publicationLayoutIds,
+  publicationThemeIds
+} from '../../application/themes/types.js';
 import { htmlDocumentSchema } from '../publications/html-document-schema.js';
 
 export const renderFormatSchema = z.enum(['html', 'pdf', 'epub', 'docx', 'markdown']);
@@ -17,9 +22,16 @@ export const renderThemeSchema = z.enum([
 export const renderArtifactPayloadRepresentationSchema = z.enum([
   'structured-json',
   'html-markup',
+  'styled-html',
   'binary',
   'storage-reference'
 ]);
+
+export const styledHtmlPresentationOptionsSchema = z.object({
+  themeId: z.enum(publicationThemeIds).optional(),
+  densityId: z.enum(publicationDensityIds).optional(),
+  layoutId: z.enum(publicationLayoutIds).optional()
+}).strict();
 
 export const renderWarningSchema = z.object({
   code: z.string().min(1),
@@ -49,7 +61,8 @@ export const renderRequestMetadataSchema = z.object({
 
 export const renderOptionsSchema = z.object({
   format: renderFormatSchema,
-  theme: renderThemeSchema
+  theme: renderThemeSchema,
+  presentation: styledHtmlPresentationOptionsSchema.optional()
 }).strict();
 
 export const rendererCapabilitiesSchema = z.object({
@@ -123,6 +136,9 @@ export type RenderFormat = z.infer<typeof renderFormatSchema>;
 export type RenderTheme = z.infer<typeof renderThemeSchema>;
 export type RenderArtifactPayloadRepresentation = z.infer<
   typeof renderArtifactPayloadRepresentationSchema
+>;
+export type StyledHtmlPresentationOptions = z.infer<
+  typeof styledHtmlPresentationOptionsSchema
 >;
 export type RenderRequestMetadata = z.infer<typeof renderRequestMetadataSchema>;
 export type RenderOptions = z.infer<typeof renderOptionsSchema>;

@@ -4,3 +4,5 @@ export * from './html-passthrough-renderer.js';
 export * from './html-escaping.js';
 export * from './html-markup-serializer.js';
 export * from './html-markup-renderer.js';
+export * from './styled-html-renderer.js';
+export * from './text-render-artifact-builder.js';

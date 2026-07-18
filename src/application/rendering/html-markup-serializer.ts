@@ -9,7 +9,14 @@ import {
   assertSafeExternalUrl,
   assertSafeInternalHref
 } from '../../platform/security/url-safety.js';
-import { escapeAttribute, escapeText, escapeTitle } from './html-escaping.js';
+import {
+  StandaloneHtmlDocumentComposer
+} from '../publication-packaging/standalone-html-document-composer.js';
+import {
+  canonicalHtmlDoctype,
+  type SerializedHtmlDocument
+} from '../publication-packaging/types.js';
+import { escapeAttribute, escapeText } from './html-escaping.js';
 
 const VOID_TAGS = new Set(['hr', 'img']);
 
@@ -315,7 +322,9 @@ function hasNonEmptyToc(document: HtmlDocument): boolean {
 }
 
 export class HtmlMarkupSerializer {
-  public serialize(document: HtmlDocument): string {
+  private readonly shellComposer = new StandaloneHtmlDocumentComposer();
+
+  public serializeDocumentParts(document: HtmlDocument): SerializedHtmlDocument {
     const idSet = new Set<string>();
     const mainNodes = extractMainNodes(document);
 
@@ -337,25 +346,26 @@ export class HtmlMarkupSerializer {
       .map((section) => section.elements.map((element) => serializeNode(element, document.head.lang, idSet)).join(''))
       .join('');
 
-    const metaTags = [
-      '<meta charset="utf-8">',
-      '<meta name="viewport" content="width=device-width, initial-scale=1">',
-      ...document.head.metadata.map((entry) => `<meta name="${escapeAttribute(entry.name)}" content="${escapeAttribute(entry.content)}">`)
-    ].join('');
+    return {
+      doctype: canonicalHtmlDoctype,
+      htmlAttributes: [{ name: 'lang', value: document.head.lang }],
+      head: {
+        title: document.head.title,
+        metadata: document.head.metadata.map((entry) => ({
+          name: entry.name,
+          content: entry.content
+        }))
+      },
+      bodyHtml: bodyContent
+    };
+  }
 
-    const title = `<title>${escapeTitle(document.head.title)}</title>`;
-
-    const html =
-      '<!doctype html>\n'
-      + `<html lang="${escapeAttribute(document.head.lang)}">\n`
-      + '<head>'
-      + metaTags
-      + title
-      + '</head>\n'
-      + '<body>'
-      + bodyContent
-      + '</body>\n'
-      + '</html>\n';
+  public serialize(document: HtmlDocument): string {
+    const parts = this.serializeDocumentParts(document);
+    const html = this.shellComposer.compose({
+      document: parts,
+      reservedMetadataPolicy: 'preserve'
+    });
 
     if (!hasNonEmptyToc(document)) {
       return html.replace(/<nav[^>]*><\/nav>/g, '');

@@ -441,6 +441,157 @@ It does not define Letter, A4, or Tabloid pages.
 
 The CSS package is intended for future preview, Publish Engine, Vivliostyle, and EPUB integrations.
 
+## HTML And CSS Package Composition
+
+Implementation 12 combines deterministic semantic HTML and deterministic theme CSS into a standalone publication document.
+
+It does not render the document in a browser.
+
+It does not paginate the document.
+
+It does not generate PDF or EPUB.
+
+It does not download or package external assets.
+
+It does not replace the existing HTML serializer or HTML renderer.
+
+Composition architecture:
+
+- semantic HTML serialization remains separate:
+  - `HtmlDocument -> HtmlMarkupSerializer -> deterministic semantic HTML document`
+- CSS packaging remains separate:
+  - `Theme ID + Density ID + Layout ID -> PublicationThemeRegistry -> PublicationCssPackager -> deterministic CSS package`
+- standalone packaging is coordinated in application layer:
+  - `HtmlMarkupSerializer -> structured serialized HTML document data + PublicationCssPackager output + presentation metadata -> StandaloneHtmlDocumentComposer -> styled standalone HTML document`
+
+Implementation 12 module layout:
+
+- `src/application/publication-packaging/types.ts`: composition input/output and serialized-document contracts
+- `src/application/publication-packaging/defaults.ts`: centralized deterministic default resolution
+- `src/application/publication-packaging/errors.ts`: controlled composition errors
+- `src/application/publication-packaging/standalone-html-document-composer.ts`: canonical document shell serializer
+- `src/application/publication-packaging/publication-package-composer.ts`: composition coordinator
+
+Structured serialized HTML document model:
+
+- distinguishes doctype, html attributes, head title, head metadata, and body markup
+- avoids reparsing serialized HTML strings
+- allows the same canonical shell serializer to serve both unstyled serializer output and styled standalone composition
+
+Serializer responsibility remains unchanged in scope:
+
+- semantic node serialization
+- attribute ordering
+- text escaping
+- URL safety behavior
+- deterministic body markup generation
+- canonical title and metadata source values
+
+Document shell responsibility:
+
+- deterministic doctype emission
+- html and body attribute serialization
+- fixed head ordering
+- optional deterministic CSS embedding
+- deterministic body placement
+- shell-level invariant enforcement
+
+Composition input:
+
+- trusted validated `HtmlDocument`
+- optional supported `themeId`
+- optional supported `densityId`
+- optional supported `layoutId`
+
+Default resolution policy:
+
+- theme: caller-supplied supported theme when present, otherwise `HtmlDocument.theme`
+- density: `standard`
+- layout: `single-column`
+
+Composition output distinguishes:
+
+- unstyled deterministic serialized HTML document
+- deterministic packaged stylesheet CSS
+- styled standalone HTML document
+- resolved presentation metadata (theme, density, layout, color scheme)
+
+Standalone HTML structure:
+
+- one lowercase `<!doctype html>`
+- one `html`
+- one `head`
+- one `body`
+- one `title`
+- one embedded publication `style`
+
+Head ordering for styled standalone documents:
+
+1. meta charset
+2. viewport
+3. existing document metadata entries in canonical source order, excluding reserved duplicates
+4. color-scheme metadata from theme registry
+5. title
+6. embedded packaged CSS
+
+Presentation hook strategy:
+
+- controlled metadata hooks are emitted on `body`
+- `data-publication-theme`
+- `data-publication-density`
+- `data-publication-layout`
+- hooks are authoritative metadata for future preview and publishing integrations
+
+Title and language handling:
+
+- title source of truth is `document.head.title`
+- language source of truth is `document.head.lang`
+- existing escaping rules are reused
+- no inference or fallback generation is introduced
+
+Deterministic formatting policy for composed standalone HTML:
+
+- canonical lowercase doctype
+- UTF-8 metadata
+- LF newlines only
+- stable element ordering
+- stable attribute ordering from controlled inputs
+- no trailing whitespace
+- exactly one final newline
+- no timestamps, build metadata, or random identifiers
+
+Active-content and external-resource policy:
+
+- no scripts
+- no inline event handlers
+- no external stylesheet links
+- no meta refresh
+- no browser execution hooks
+- no asset downloading, font embedding, or URL rewriting
+- existing safe links and asset URLs from semantic HTML are preserved under prior validation rules
+
+Accessibility preservation:
+
+- document language remains present
+- document title remains present
+- packaged focus-visible CSS remains included
+- semantic headings, links, images, and tables remain unchanged
+- viewport metadata does not disable scaling
+
+Renderer boundary:
+
+- no new renderer is added in this implementation
+- `HtmlMarkupRenderer` remains unchanged and continues to emit the existing unstyled `html-markup` artifact
+- styled standalone HTML remains an application-layer composition result only in this phase
+
+Future integration targets:
+
+- browser preview services
+- external Publish Engine composition
+- Vivliostyle consumption
+- EPUB generation reuse
+- later styled HTML render artifacts if explicitly approved
+
 Current CTA template policy:
 
 - no invented prayer, CTA, journal, or next-step prose

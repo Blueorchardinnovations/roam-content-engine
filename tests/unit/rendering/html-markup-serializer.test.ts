@@ -231,6 +231,18 @@ function createDocument(overrides?: Partial<HtmlDocument>): HtmlDocument {
 }
 
 describe('html markup serializer', () => {
+  it('exposes structured serialized document parts without reparsing html', () => {
+    const serializer = new HtmlMarkupSerializer();
+    const parts = serializer.serializeDocumentParts(createDocument());
+
+    expect(parts.doctype).toBe('<!doctype html>');
+    expect(parts.htmlAttributes).toEqual([{ name: 'lang', value: 'en' }]);
+    expect(parts.head.title).toBe('RoaM <Guide> & Study');
+    expect(parts.head.metadata).toEqual([{ name: 'description', content: 'Desc "quoted"' }]);
+    expect(parts.bodyHtml).toContain('<article');
+    expect(parts.bodyHtml).toContain('publication-reflection');
+  });
+
   it('produces complete deterministic html5 document with canonical doctype', () => {
     const serializer = new HtmlMarkupSerializer();
     const html = serializer.serialize(createDocument());
@@ -339,5 +351,6 @@ describe('html markup serializer', () => {
   it('does not require clock or id generator dependencies', () => {
     const serializer = new HtmlMarkupSerializer();
     expect(typeof serializer.serialize).toBe('function');
+    expect(typeof serializer.serializeDocumentParts).toBe('function');
   });
 });

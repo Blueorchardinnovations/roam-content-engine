@@ -54,6 +54,43 @@ const environmentSchema = z.object({
 
   WORKER_STALE_RECOVERY_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
 
+  PUBLISH_WORKER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+
+  PUBLISH_WORKER_NAME: z.string().min(1).default('roam-content-publish-worker'),
+
+  PUBLISH_JOB_POLL_INTERVAL_MS: z.coerce.number().int().min(100).default(2000),
+
+  PUBLISH_JOB_MAX_CONSECUTIVE_FAILURES: z.coerce.number().int().min(1).default(5),
+
+  PUBLISH_JOB_LEASE_DURATION_MS: z.coerce.number().int().positive().default(30000),
+
+  PUBLISH_JOB_HEARTBEAT_INTERVAL_MS: z.coerce.number().int().positive().default(10000),
+
+  PUBLISH_JOB_RETRY_BASE_DELAY_MS: z.coerce.number().int().positive().default(1000),
+
+  PUBLISH_JOB_RETRY_MAX_DELAY_MS: z.coerce.number().int().positive().default(60000),
+
+  PUBLISH_JOB_STALE_RECOVERY_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
+
+  PUBLISH_JOB_CONCURRENCY: z.coerce.number().int().min(1).default(1),
+
+  PUBLISH_JOB_SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+
+  PUBLISH_ENGINE_BASE_URL: z.preprocess(trimString, z.string().default('')),
+
+  PUBLISH_ENGINE_SCOPE: z.preprocess(trimString, z.string().default('')),
+
+  PUBLISH_ENGINE_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().max(300000).default(30000),
+
+  PUBLISH_ENGINE_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(3),
+
+  PUBLISH_ENGINE_RETRY_BASE_DELAY_MS: z.coerce.number().int().positive().default(250),
+
+  PUBLISH_ENGINE_RETRY_MAX_DELAY_MS: z.coerce.number().int().positive().default(5000),
+
   AI_PROVIDER: z.preprocess(trimString, z.enum(['mock', 'openai']).default('mock')),
 
   OPENAI_API_KEY: z.preprocess(trimString, z.string().default('')),
@@ -87,6 +124,30 @@ const environmentSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: 'WORKER_RETRY_MAX_DELAY_MS must be greater than or equal to WORKER_RETRY_BASE_DELAY_MS.',
       path: ['WORKER_RETRY_MAX_DELAY_MS']
+    });
+  }
+
+  if (value.PUBLISH_JOB_LEASE_DURATION_MS <= value.PUBLISH_JOB_HEARTBEAT_INTERVAL_MS) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'PUBLISH_JOB_LEASE_DURATION_MS must be greater than PUBLISH_JOB_HEARTBEAT_INTERVAL_MS.',
+      path: ['PUBLISH_JOB_LEASE_DURATION_MS']
+    });
+  }
+
+  if (value.PUBLISH_JOB_RETRY_MAX_DELAY_MS < value.PUBLISH_JOB_RETRY_BASE_DELAY_MS) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'PUBLISH_JOB_RETRY_MAX_DELAY_MS must be greater than or equal to PUBLISH_JOB_RETRY_BASE_DELAY_MS.',
+      path: ['PUBLISH_JOB_RETRY_MAX_DELAY_MS']
+    });
+  }
+
+  if (value.PUBLISH_ENGINE_RETRY_MAX_DELAY_MS < value.PUBLISH_ENGINE_RETRY_BASE_DELAY_MS) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'PUBLISH_ENGINE_RETRY_MAX_DELAY_MS must be greater than or equal to PUBLISH_ENGINE_RETRY_BASE_DELAY_MS.',
+      path: ['PUBLISH_ENGINE_RETRY_MAX_DELAY_MS']
     });
   }
 
@@ -128,6 +189,23 @@ export interface Environment {
   readonly workerRetryBaseDelayMs: number;
   readonly workerRetryMaxDelayMs: number;
   readonly workerStaleRecoveryIntervalMs: number;
+  readonly publishWorkerEnabled: boolean;
+  readonly publishWorkerName: string;
+  readonly publishJobPollIntervalMs: number;
+  readonly publishJobMaxConsecutiveFailures: number;
+  readonly publishJobLeaseDurationMs: number;
+  readonly publishJobHeartbeatIntervalMs: number;
+  readonly publishJobRetryBaseDelayMs: number;
+  readonly publishJobRetryMaxDelayMs: number;
+  readonly publishJobStaleRecoveryIntervalMs: number;
+  readonly publishJobConcurrency: number;
+  readonly publishJobShutdownTimeoutMs: number;
+  readonly publishEngineBaseUrl: string;
+  readonly publishEngineScope: string;
+  readonly publishEngineRequestTimeoutMs: number;
+  readonly publishEngineMaxRetries: number;
+  readonly publishEngineRetryBaseDelayMs: number;
+  readonly publishEngineRetryMaxDelayMs: number;
   readonly aiProvider: 'mock' | 'openai';
   readonly openAiApiKey: string;
   readonly openAiModel: string;
@@ -160,6 +238,32 @@ export const environment: Environment = {
   workerRetryMaxDelayMs: parsedEnvironment.data.WORKER_RETRY_MAX_DELAY_MS,
   workerStaleRecoveryIntervalMs:
     parsedEnvironment.data.WORKER_STALE_RECOVERY_INTERVAL_MS,
+  publishWorkerEnabled: parsedEnvironment.data.PUBLISH_WORKER_ENABLED,
+  publishWorkerName: parsedEnvironment.data.PUBLISH_WORKER_NAME,
+  publishJobPollIntervalMs: parsedEnvironment.data.PUBLISH_JOB_POLL_INTERVAL_MS,
+  publishJobMaxConsecutiveFailures:
+    parsedEnvironment.data.PUBLISH_JOB_MAX_CONSECUTIVE_FAILURES,
+  publishJobLeaseDurationMs: parsedEnvironment.data.PUBLISH_JOB_LEASE_DURATION_MS,
+  publishJobHeartbeatIntervalMs:
+    parsedEnvironment.data.PUBLISH_JOB_HEARTBEAT_INTERVAL_MS,
+  publishJobRetryBaseDelayMs:
+    parsedEnvironment.data.PUBLISH_JOB_RETRY_BASE_DELAY_MS,
+  publishJobRetryMaxDelayMs:
+    parsedEnvironment.data.PUBLISH_JOB_RETRY_MAX_DELAY_MS,
+  publishJobStaleRecoveryIntervalMs:
+    parsedEnvironment.data.PUBLISH_JOB_STALE_RECOVERY_INTERVAL_MS,
+  publishJobConcurrency: parsedEnvironment.data.PUBLISH_JOB_CONCURRENCY,
+  publishJobShutdownTimeoutMs:
+    parsedEnvironment.data.PUBLISH_JOB_SHUTDOWN_TIMEOUT_MS,
+  publishEngineBaseUrl: parsedEnvironment.data.PUBLISH_ENGINE_BASE_URL,
+  publishEngineScope: parsedEnvironment.data.PUBLISH_ENGINE_SCOPE,
+  publishEngineRequestTimeoutMs:
+    parsedEnvironment.data.PUBLISH_ENGINE_REQUEST_TIMEOUT_MS,
+  publishEngineMaxRetries: parsedEnvironment.data.PUBLISH_ENGINE_MAX_RETRIES,
+  publishEngineRetryBaseDelayMs:
+    parsedEnvironment.data.PUBLISH_ENGINE_RETRY_BASE_DELAY_MS,
+  publishEngineRetryMaxDelayMs:
+    parsedEnvironment.data.PUBLISH_ENGINE_RETRY_MAX_DELAY_MS,
   aiProvider: parsedEnvironment.data.AI_PROVIDER,
   openAiApiKey: parsedEnvironment.data.OPENAI_API_KEY,
   openAiModel: parsedEnvironment.data.OPENAI_MODEL,

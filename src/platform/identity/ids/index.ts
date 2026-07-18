@@ -3,7 +3,9 @@ import { ulid } from 'ulid';
 export type IdPrefix =
   | 'srcver'
   | 'job'
+  | 'pjob'
   | 'evt'
+  | 'pevt'
   | 'corr'
   | 'tenant'
   | 'project'
@@ -30,8 +32,16 @@ export function createContentJobId(): PrefixedId<'job'> {
   return createPrefixedId('job');
 }
 
+export function createPublishJobId(): PrefixedId<'pjob'> {
+  return createPrefixedId('pjob');
+}
+
 export function createJobEventId(): PrefixedId<'evt'> {
   return createPrefixedId('evt');
+}
+
+export function createPublishJobEventId(): PrefixedId<'pevt'> {
+  return createPrefixedId('pevt');
 }
 
 export function createCorrelationId(): PrefixedId<'corr'> {

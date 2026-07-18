@@ -145,6 +145,46 @@ Notes:
 - Monetary cost estimation is not implemented in this milestone; usage records keep token and latency data only.
 - Do not commit real credentials.
 
+Publish worker variables:
+
+```env
+PUBLISH_WORKER_ENABLED=false
+PUBLISH_WORKER_NAME=roam-content-publish-worker
+PUBLISH_JOB_POLL_INTERVAL_MS=2000
+PUBLISH_JOB_MAX_CONSECUTIVE_FAILURES=5
+PUBLISH_JOB_LEASE_DURATION_MS=30000
+PUBLISH_JOB_HEARTBEAT_INTERVAL_MS=10000
+PUBLISH_JOB_RETRY_BASE_DELAY_MS=1000
+PUBLISH_JOB_RETRY_MAX_DELAY_MS=60000
+PUBLISH_JOB_STALE_RECOVERY_INTERVAL_MS=30000
+PUBLISH_JOB_CONCURRENCY=1
+PUBLISH_JOB_SHUTDOWN_TIMEOUT_MS=30000
+PUBLISH_ENGINE_BASE_URL=https://publish-engine.example
+PUBLISH_ENGINE_SCOPE=api://publish-engine/.default
+PUBLISH_ENGINE_REQUEST_TIMEOUT_MS=30000
+PUBLISH_ENGINE_MAX_RETRIES=3
+PUBLISH_ENGINE_RETRY_BASE_DELAY_MS=250
+PUBLISH_ENGINE_RETRY_MAX_DELAY_MS=5000
+```
+
+Publish worker notes:
+
+- `PUBLISH_WORKER_ENABLED=false` keeps the dedicated publish worker process inert by default.
+- enabling the publish worker flag alone is insufficient; no production access-token provider is composed in this milestone.
+- static bearer-token authentication is intentionally not supported in production runtime wiring.
+- publish worker startup fails closed with `PUBLISH_ENGINE_CONFIGURATION_ERROR` until a supported identity composition is added in a later phase.
+- tests use fake publish clients/providers and do not call a real Publish Engine.
+- publish worker validation enforces `PUBLISH_JOB_LEASE_DURATION_MS > PUBLISH_JOB_HEARTBEAT_INTERVAL_MS`.
+- publish worker validation enforces both retry max values to be greater than or equal to their corresponding base values.
+- use `npm run worker:publish` or `npm run worker:publish:dev` to run the dedicated publish worker.
+- API responses intentionally redact internal lease fields, request fingerprints, remote submission idempotency keys, source artifact snapshots, source HTML payloads, and download URLs.
+- API responses expose download URL expiry as `downloadMetadata.expired`.
+- waiting publish jobs do not retain active leases.
+- publish cancellation is local-state cancellation; it does not invoke remote render cancellation.
+- publish failures do not mutate completed content-job state.
+- migration `0002_curvy_ultimo.sql` is required for publish-job tables and indexes.
+- integration and publish-job tests require a migrated PostgreSQL database.
+
 ## AI Processing Pipeline
 
 Transcript jobs continue to compute deterministic normalization and statistics, and now optionally attach AI outputs under the job `result.ai` field.
@@ -828,6 +868,10 @@ Versioned API (`/v1`):
 - `GET /v1/content-jobs/:jobId`
 - `GET /v1/content-jobs/:jobId/events`
 - `POST /v1/content-jobs/:jobId/cancel`
+- `POST /v1/publish-jobs`
+- `GET /v1/publish-jobs/:publishJobId`
+- `GET /v1/publish-jobs/:publishJobId/events`
+- `POST /v1/publish-jobs/:publishJobId/cancel`
 
 ## Example cURL
 
@@ -871,6 +915,8 @@ curl -i http://localhost:3000/v1/content-jobs/job_01JEXAMPLEABCDEF1234567890/eve
 ## Idempotency Behavior
 
 `POST /v1/content-jobs` is idempotent by `(tenant, idempotency-key)`.
+
+`POST /v1/publish-jobs` is idempotent by `(tenant, idempotency-key)`.
 
 - same key + same fingerprint returns the same job record
 - same key + different fingerprint returns `409 IDEMPOTENCY_KEY_REUSED`

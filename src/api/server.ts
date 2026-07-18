@@ -4,6 +4,7 @@ import { checkDatabaseHealth, closeDatabasePool, db } from '../db/client.js';
 import { environment } from '../platform/foundation/environment/index.js';
 import {
   DrizzleContentJobRepository,
+  DrizzlePublishJobRepository,
   DrizzleJobEventRepository,
   DrizzleSourceVersionRepository
 } from '../infrastructure/repositories/index.js';
@@ -14,11 +15,13 @@ export async function startServer(): Promise<void> {
   const sourceVersionRepository = new DrizzleSourceVersionRepository(db);
   const contentJobRepository = new DrizzleContentJobRepository(db);
   const jobEventRepository = new DrizzleJobEventRepository(db);
+  const publishJobRepository = new DrizzlePublishJobRepository(db);
 
   const app = await createApp({
     sourceVersionRepository,
     contentJobRepository,
     jobEventRepository,
+    publishJobRepository,
     checkDatabaseHealth,
     nodeEnv: environment.nodeEnv
   });

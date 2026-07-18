@@ -25,6 +25,7 @@ function createRealApp(overrides?: {
     sourceVersionRepository: repositories.sourceVersions,
     contentJobRepository: repositories.contentJobs,
     jobEventRepository: repositories.jobEvents,
+    publishJobRepository: repositories.publishJobs,
     checkDatabaseHealth: overrides?.checkDatabaseHealth ?? (async () => true),
     nodeEnv,
     bodyLimitBytes: overrides?.bodyLimitBytes
@@ -106,6 +107,7 @@ describe.sequential('HTTP API integration', () => {
         sourceVersionRepository: failingSourceRepository,
         contentJobRepository: repositories.contentJobs,
         jobEventRepository: repositories.jobEvents,
+        publishJobRepository: repositories.publishJobs,
         checkDatabaseHealth: async () => true,
         nodeEnv
       });
@@ -889,6 +891,7 @@ describe.sequential('HTTP API integration', () => {
       sourceVersionRepository: throwingSourceRepository,
       contentJobRepository: passthroughContentJobRepository,
       jobEventRepository: passthroughJobEventRepository,
+      publishJobRepository: repositories.publishJobs,
       checkDatabaseHealth: async () => true,
       nodeEnv
     });

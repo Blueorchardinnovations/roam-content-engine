@@ -5,6 +5,7 @@ import {
   type PrefixedId
 } from '../../platform/identity/ids/index.js';
 import { aiPipelineResultSchema } from '../../schemas/ai/pipeline-schema.js';
+import { htmlDocumentSchema } from '../../schemas/publications/html-document-schema.js';
 import { publicationSchema } from '../../schemas/publications/publication-schema.js';
 
 export const contentJobStatuses = [
@@ -50,7 +51,8 @@ export const transcriptProcessingResultSchema = z.object({
   lineCount: nonNegativeInt,
   processedAt: z.string().datetime({ offset: true }),
   ai: aiPipelineResultSchema.optional(),
-  publication: publicationSchema.optional()
+  publication: publicationSchema.optional(),
+  htmlDocument: htmlDocumentSchema.optional()
 }).strict();
 
 export type TranscriptProcessingResult = z.infer<

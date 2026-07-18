@@ -2,6 +2,7 @@ import { systemClock, type Clock } from '../platform/foundation/clock/index.js';
 import { sleep, type Sleep } from '../platform/foundation/sleep.js';
 import { createShutdownController } from '../platform/foundation/shutdown-signal.js';
 import type { AIPipeline } from '../application/ai/pipeline.js';
+import { PublicationHtmlComposer } from '../application/publications/html-composer.js';
 import { PublicationBuilder } from '../application/publications/publication-builder.js';
 import type { SourceVersionRepository } from '../domain/repositories/source-version-repository.js';
 import type { WorkerJobSource, WorkerRuntimeState } from '../domain/workers/worker-types.js';
@@ -67,7 +68,8 @@ export function createWorkerApp(
     dependencies.sourceVersionRepository,
     () => clock.now(),
     dependencies.aiPipeline,
-    new PublicationBuilder(() => clock.now())
+    new PublicationBuilder(() => clock.now()),
+    new PublicationHtmlComposer()
   );
 
   const executor = new JobExecutor({

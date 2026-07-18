@@ -239,4 +239,171 @@ describe('transcript processing result schema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('accepts html document output when valid', () => {
+    const result = transcriptProcessingResultSchema.safeParse({
+      schemaVersion: '1.0',
+      sourceVersionId: 'srcver_01JXYZ12345678901234567890',
+      contentHash: 'abc123',
+      wordCount: 100,
+      characterCount: 500,
+      paragraphCount: 5,
+      lineCount: 12,
+      processedAt: '2026-01-01T00:00:00.000Z',
+      htmlDocument: {
+        schemaVersion: '1.0',
+        metadata: {
+          publicationId: 'pub_01',
+          publicationType: 'cta-guide',
+          title: 'Title',
+          description: null,
+          language: 'en',
+          generatedAt: '2026-01-01T00:00:00.000Z',
+          sourceVersionId: 'srcver_01JXYZ12345678901234567890',
+          sourceContentHash: 'hash',
+          audience: 'general',
+          theme: 'classic',
+          styleTokens: [{ category: 'page-intent', value: 'reading' }],
+          assetReferences: []
+        },
+        theme: 'classic',
+        head: {
+          title: 'Title',
+          lang: 'en',
+          metadata: [{ name: 'description', content: 'Title' }],
+          styleTokens: [{ category: 'page-intent', value: 'reading' }]
+        },
+        body: {
+          skipNavigationTargetId: 'main-content',
+          sections: [
+            {
+              id: 'document-root',
+              title: 'Document',
+              role: 'content',
+              styleTokens: [{ category: 'section-intent', value: 'content' }],
+              elements: [
+                {
+                  nodeType: 'element',
+                  elementType: 'generic',
+                  id: 'main-content',
+                  tag: 'main',
+                  attributes: {},
+                  classList: [],
+                  ariaLabel: null,
+                  role: null,
+                  styleTokens: [],
+                  children: [
+                    {
+                      nodeType: 'element',
+                      elementType: 'heading',
+                      id: 'cover-title',
+                      tag: 'h1',
+                      level: 1,
+                      attributes: {},
+                      classList: [],
+                      ariaLabel: null,
+                      role: null,
+                      styleTokens: [{ category: 'heading-intent', value: 'document-title' }],
+                      children: [{ nodeType: 'text', text: 'Title' }]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          landmarks: [
+            { role: 'banner', sectionId: 'document-root', label: 'Header' },
+            { role: 'navigation', sectionId: 'document-root', label: 'TOC' },
+            { role: 'main', sectionId: 'document-root', label: null }
+          ]
+        }
+      }
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects html document with unknown nested fields', () => {
+    const result = transcriptProcessingResultSchema.safeParse({
+      schemaVersion: '1.0',
+      sourceVersionId: 'srcver_01JXYZ12345678901234567890',
+      contentHash: 'abc123',
+      wordCount: 100,
+      characterCount: 500,
+      paragraphCount: 5,
+      lineCount: 12,
+      processedAt: '2026-01-01T00:00:00.000Z',
+      htmlDocument: {
+        schemaVersion: '1.0',
+        metadata: {
+          publicationId: 'pub_01',
+          publicationType: 'cta-guide',
+          title: 'Title',
+          description: null,
+          language: 'en',
+          generatedAt: '2026-01-01T00:00:00.000Z',
+          sourceVersionId: 'srcver_01JXYZ12345678901234567890',
+          sourceContentHash: 'hash',
+          audience: 'general',
+          theme: 'classic',
+          styleTokens: [{ category: 'page-intent', value: 'reading' }],
+          assetReferences: []
+        },
+        theme: 'classic',
+        head: {
+          title: 'Title',
+          lang: 'en',
+          metadata: [{ name: 'description', content: 'Title' }],
+          styleTokens: [{ category: 'page-intent', value: 'reading' }]
+        },
+        body: {
+          skipNavigationTargetId: 'main-content',
+          sections: [
+            {
+              id: 'document-root',
+              title: 'Document',
+              role: 'content',
+              styleTokens: [{ category: 'section-intent', value: 'content' }],
+              elements: [
+                {
+                  nodeType: 'element',
+                  elementType: 'generic',
+                  id: 'main-content',
+                  tag: 'main',
+                  attributes: {},
+                  classList: [],
+                  ariaLabel: null,
+                  role: null,
+                  styleTokens: [],
+                  children: [
+                    {
+                      nodeType: 'element',
+                      elementType: 'heading',
+                      id: 'cover-title',
+                      tag: 'h1',
+                      level: 1,
+                      attributes: {},
+                      classList: [],
+                      ariaLabel: null,
+                      role: null,
+                      styleTokens: [{ category: 'heading-intent', value: 'document-title' }],
+                      children: [{ nodeType: 'text', text: 'Title' }]
+                    }
+                  ],
+                  unexpected: true
+                }
+              ]
+            }
+          ],
+          landmarks: [
+            { role: 'banner', sectionId: 'document-root', label: 'Header' },
+            { role: 'navigation', sectionId: 'document-root', label: 'TOC' },
+            { role: 'main', sectionId: 'document-root', label: null }
+          ]
+        }
+      }
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

@@ -40,7 +40,7 @@ Not implemented in this milestone:
 
 - Microsoft Entra authentication and JWT validation
 - Azure OpenAI integration
-- publication rendering to EPUB/PDF/DOCX/HTML
+- publication rendering to EPUB/PDF/DOCX
 - Azure Service Bus transport (database queue is the interim transport)
 
 The temporary `x-tenant-id` header is a development identity adapter only. It is not production authentication.
@@ -156,11 +156,11 @@ Pipeline characteristics:
 
 ## Publication Generation Framework
 
-After AI pipeline completion, the worker now builds and persists a normalized publication object.
+After AI pipeline completion, the worker now builds and persists a normalized publication object and a renderer-neutral semantic HTML document model.
 
 Architecture flow:
 
-- `Worker -> AI Pipeline -> Publication Builder -> Publication Model -> Renderer (future)`
+- `Worker -> AI Pipeline -> Publication Builder -> Publication Model -> HTML Composer -> HtmlDocument -> Renderer (future)`
 
 The publication builder is renderer-independent and currently emits a structured CTA Guide publication model.
 
@@ -215,8 +215,27 @@ Supported publication metadata includes:
 Validation guarantees:
 
 - strict schema validation for all publication objects and blocks
+- strict schema validation for all HtmlDocument objects, semantic elements, and design tokens
+- strict HTML attribute allowlist and URL safety policy (`https`, `http`, `mailto`, `asset`, and internal `#anchor` only), including malformed URL rejection, embedded credential blocking, and host/port validation for network URLs
+- strict structural validation for one non-empty `main` semantics, internal anchor targets, heading progression, and landmark integrity
 - publication-wide ID uniqueness (sections, blocks, TOC entries, references, citations, footnotes, assets)
 - cross-object reference integrity checks for TOC targets, internal references, citations, footnotes, and assets
+
+## HTML Composition Layer
+
+The HTML composition layer converts normalized Publication content into semantic, renderer-neutral HtmlDocument structures.
+
+Composition characteristics:
+
+- semantic HTML tags only (`article`, `section`, `header`, `footer`, `main`, `aside`, `nav`, headings, paragraphs, lists, tables, figures)
+- deterministic theme mapping from publication theme to intent-based design tokens
+- design tokens describe intent only (spacing, typography, color intent, font role, border intent, shadow intent, radius, callout type, page intent, section intent, heading intent, content width, image alignment)
+- no CSS values, no layout engine directives, and no renderer-specific attributes
+- assets are references only (`asset://...`) and are never embedded as binaries
+- TOC, references, and footnotes are composed into semantic navigation/content sections
+- accessibility-focused structure with language support, heading-order validation, table headers, semantic navigation labels, and alt-text placeholders
+- TOC navigation is omitted when there are no TOC entries
+- callout blocks retain semantic distinctions (`dataPublicationBlock` and mapped `dataCalloutType`) instead of collapsing to a single generic marker
 
 Current CTA template policy:
 
@@ -231,15 +250,31 @@ Current limitations:
 - EPUB rendering is not implemented.
 - PDF rendering is not implemented.
 - DOCX rendering is not implemented.
-- HTML rendering is not implemented.
+- CSS generation is not implemented.
+- Browser rendering is not implemented.
+- Print layout is not implemented.
+- HTML renderer execution is not implemented (only HtmlDocument composition exists).
 - cover image assets are references only.
 - page numbers remain null until rendering.
-- Only normalized publication generation exists in this milestone.
+- Vivliostyle integration is not implemented.
+- Paged.js integration is not implemented.
+- PrinceXML integration is not implemented.
 
 Worker retry semantics for AI execution:
 
 - transient provider failures (`AI_PROVIDER_UNAVAILABLE`, `AI_RATE_LIMIT`, `AI_TIMEOUT`) map to retryable worker failures
 - invalid output, auth errors, and permanent provider failures map to permanent worker failures
+
+Worker error taxonomy for publication and HTML composition:
+
+- publication failures: `PUBLICATION_VALIDATION_ERROR`, `PUBLICATION_UNSUPPORTED_TYPE`, `PUBLICATION_BUILD_ERROR`
+- html failures: `HTML_VALIDATION_ERROR`, `HTML_UNSUPPORTED_ELEMENT`, `HTML_COMPOSITION_ERROR`
+- cancelled publication/html flows map to worker cancellation (no partial persistence)
+
+Privacy guarantees for publication/html persistence:
+
+- raw transcript sentinels and prompt/provider internals are not persisted into publication or HtmlDocument payloads
+- HTML validation and composition failures use sanitized error messages and do not include transcript sentinel values
 
 ## Run Commands
 
@@ -289,6 +324,12 @@ Run only worker tests:
 
 ```bash
 npm run test:worker
+```
+
+Run HTML-focused safety and composition tests:
+
+```bash
+npm run test:html
 ```
 
 Repository-layer focused commands:

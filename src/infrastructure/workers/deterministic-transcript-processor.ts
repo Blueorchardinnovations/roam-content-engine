@@ -14,13 +14,18 @@ import { PermanentWorkerError, RetryableWorkerError, WorkerCancelledError } from
 import { ErrorCode } from '../../platform/shared/errors/codes.js';
 import { normalizeTranscript, computeTranscriptHash } from '../../platform/security/hashing/index.js';
 import type { AIPipeline } from '../../application/ai/pipeline.js';
+import type { HtmlComposer } from '../../application/publications/html-composer.js';
 import type { PublicationGenerator } from '../../application/publications/publication-generator.js';
 import {
+  HtmlCancelledError,
+  HtmlCompositionError,
+  HtmlValidationError,
+  UnsupportedHtmlElementError,
   PublicationBuildError,
   PublicationCancelledError,
   PublicationValidationError,
   UnsupportedPublicationTypeError
-} from '../../application/publications/publication-errors.js';
+} from '../../application/publications/index.js';
 
 export class DeterministicTranscriptProcessor implements JobProcessor {
   public readonly jobType = 'transcript-processing' as const;
@@ -29,7 +34,8 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
     private readonly sourceVersionRepository: SourceVersionRepository,
     private readonly now: () => Date,
     private readonly aiPipeline?: AIPipeline,
-    private readonly publicationGenerator?: PublicationGenerator
+    private readonly publicationGenerator?: PublicationGenerator,
+    private readonly htmlComposer?: HtmlComposer
   ) {}
 
   public async process(input: {
@@ -86,6 +92,7 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
 
     let aiResult: TranscriptProcessingResult['ai'];
     let publicationResult: TranscriptProcessingResult['publication'];
+    let htmlDocumentResult: TranscriptProcessingResult['htmlDocument'];
 
     if (this.aiPipeline) {
       try {
@@ -162,6 +169,44 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
 
         throw error;
       }
+
+      if (!this.htmlComposer) {
+        throw new PermanentWorkerError(
+          'HTML composition is not configured.',
+          ErrorCode.HTML_COMPOSITION_ERROR
+        );
+      }
+
+      try {
+        htmlDocumentResult = this.htmlComposer.compose(publicationResult, input.signal);
+      } catch (error) {
+        if (error instanceof HtmlCancelledError || input.signal.aborted) {
+          throw new WorkerCancelledError();
+        }
+
+        if (error instanceof HtmlValidationError) {
+          throw new PermanentWorkerError(
+            'HTML document validation failed.',
+            ErrorCode.HTML_VALIDATION_ERROR
+          );
+        }
+
+        if (error instanceof UnsupportedHtmlElementError) {
+          throw new PermanentWorkerError(
+            'HTML document uses unsupported element mappings.',
+            ErrorCode.HTML_UNSUPPORTED_ELEMENT
+          );
+        }
+
+        if (error instanceof HtmlCompositionError) {
+          throw new PermanentWorkerError(
+            'HTML document composition failed.',
+            ErrorCode.HTML_COMPOSITION_ERROR
+          );
+        }
+
+        throw error;
+      }
     }
 
     if (input.signal.aborted) {
@@ -180,7 +225,8 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
       lineCount: lines,
       processedAt,
       ai: aiResult,
-      publication: publicationResult
+      publication: publicationResult,
+      htmlDocument: htmlDocumentResult
     };
   }
 }

@@ -3,11 +3,16 @@ import { describe, expect, it } from 'vitest';
 import type { SourceVersionRepository } from '../../../src/domain/repositories/source-version-repository.js';
 import { ErrorCode } from '../../../src/platform/shared/errors/codes.js';
 import {
+  HtmlCancelledError,
+  HtmlCompositionError,
+  HtmlValidationError,
   PublicationBuildError,
   PublicationCancelledError,
   PublicationValidationError,
+  UnsupportedHtmlElementError,
   UnsupportedPublicationTypeError
-} from '../../../src/application/publications/publication-errors.js';
+} from '../../../src/application/publications/index.js';
+import type { HtmlComposer } from '../../../src/application/publications/html-composer.js';
 import type { PublicationGenerator } from '../../../src/application/publications/publication-generator.js';
 import { DeterministicTranscriptProcessor } from '../../../src/infrastructure/workers/deterministic-transcript-processor.js';
 import { PermanentWorkerError, WorkerCancelledError } from '../../../src/domain/workers/worker-errors.js';
@@ -181,13 +186,75 @@ function createGenerator(overrides?: Partial<PublicationGenerator>): Publication
   };
 }
 
+function createHtmlComposer(overrides?: Partial<HtmlComposer>): HtmlComposer {
+  return {
+    compose: () => ({
+      schemaVersion: '1.0',
+      metadata: {
+        publicationId: 'pub_1',
+        publicationType: 'cta-guide',
+        title: 'Title',
+        description: null,
+        language: 'en',
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        sourceVersionId: 'srcver_01TEST',
+        sourceContentHash: 'hash_1',
+        audience: 'general',
+        theme: 'classic',
+        styleTokens: [{ category: 'page-intent', value: 'reading' }],
+        assetReferences: []
+      },
+      theme: 'classic',
+      head: {
+        title: 'Title',
+        lang: 'en',
+        metadata: [{ name: 'description', content: 'Title' }],
+        styleTokens: [{ category: 'page-intent', value: 'reading' }]
+      },
+      body: {
+        skipNavigationTargetId: 'section-1',
+        sections: [
+          {
+            id: 'section-1',
+            title: 'Title',
+            role: 'content',
+            styleTokens: [{ category: 'section-intent', value: 'content' }],
+            elements: [
+              {
+                nodeType: 'element',
+                elementType: 'heading',
+                id: 'heading-1',
+                tag: 'h1',
+                level: 1,
+                attributes: {},
+                classList: [],
+                ariaLabel: null,
+                role: null,
+                styleTokens: [{ category: 'heading-intent', value: 'document-title' }],
+                children: [{ nodeType: 'text', text: 'Title' }]
+              }
+            ]
+          }
+        ],
+        landmarks: [
+          { role: 'banner', sectionId: 'section-1', label: 'Header' },
+          { role: 'navigation', sectionId: 'section-1', label: 'Navigation' },
+          { role: 'main', sectionId: 'section-1', label: null }
+        ]
+      }
+    }),
+    ...overrides
+  };
+}
+
 describe('deterministic transcript processor publication integration', () => {
   it('uses publication generator abstraction and attaches publication output', async () => {
     const processor = new DeterministicTranscriptProcessor(
       createRepository(),
       () => new Date('2026-01-01T00:00:00.000Z'),
       createAiPipeline() as any,
-      createGenerator()
+      createGenerator(),
+      createHtmlComposer()
     );
 
     const result = await processor.process({
@@ -199,6 +266,7 @@ describe('deterministic transcript processor publication integration', () => {
 
     expect(result.ai).toBeDefined();
     expect(result.publication).toBeDefined();
+    expect(result.htmlDocument).toBeDefined();
     expect(result.publication?.metadata.publicationType).toBe('cta-guide');
   });
 
@@ -211,7 +279,8 @@ describe('deterministic transcript processor publication integration', () => {
         build: () => {
           throw new PublicationValidationError();
         }
-      })
+      }),
+      createHtmlComposer()
     );
 
     await expect(
@@ -233,7 +302,8 @@ describe('deterministic transcript processor publication integration', () => {
         build: () => {
           throw new UnsupportedPublicationTypeError('unknown-type');
         }
-      })
+      }),
+      createHtmlComposer()
     );
 
     await expect(
@@ -255,7 +325,8 @@ describe('deterministic transcript processor publication integration', () => {
         build: () => {
           throw new PublicationBuildError();
         }
-      })
+      }),
+      createHtmlComposer()
     );
 
     await expect(
@@ -277,7 +348,8 @@ describe('deterministic transcript processor publication integration', () => {
         build: () => {
           throw new PublicationCancelledError();
         }
-      })
+      }),
+      createHtmlComposer()
     );
 
     await expect(
@@ -305,5 +377,115 @@ describe('deterministic transcript processor publication integration', () => {
         heartbeat: async () => undefined
       })
     ).rejects.toBeInstanceOf(PermanentWorkerError);
+  });
+
+  it('fails permanently when html composer is missing for AI path', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator()
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.HTML_COMPOSITION_ERROR });
+  });
+
+  it('maps html validation failure to permanent worker error', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer({
+        compose: () => {
+          throw new HtmlValidationError();
+        }
+      })
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.HTML_VALIDATION_ERROR });
+  });
+
+  it('maps html unsupported element failure to permanent worker error', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer({
+        compose: () => {
+          throw new UnsupportedHtmlElementError();
+        }
+      })
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.HTML_UNSUPPORTED_ELEMENT });
+  });
+
+  it('maps html composition failure to permanent worker error', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer({
+        compose: () => {
+          throw new HtmlCompositionError();
+        }
+      })
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.HTML_COMPOSITION_ERROR });
+  });
+
+  it('maps html cancellation to worker cancellation', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer({
+        compose: () => {
+          throw new HtmlCancelledError();
+        }
+      })
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toBeInstanceOf(WorkerCancelledError);
   });
 });

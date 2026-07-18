@@ -248,4 +248,54 @@ describe('job executor', () => {
     const args = scheduleRetry.mock.calls[0]?.[0];
     expect(args.errorMessage.length).toBeLessThanOrEqual(500);
   });
+
+  it('returns lease-lost when completion persistence fails after processor produced render artifact', async () => {
+    const processor: JobProcessor = {
+      jobType: 'transcript-processing',
+      process: async () => ({
+        schemaVersion: '1.0',
+        sourceVersionId: 'srcver_01TEST',
+        contentHash: 'hash',
+        wordCount: 1,
+        characterCount: 1,
+        paragraphCount: 1,
+        lineCount: 1,
+        processedAt: new Date('2026-01-01T00:00:00.000Z').toISOString(),
+          renderArtifact: {
+            metadata: {
+              artifactId: 'artifact_1',
+              status: 'ready',
+              format: 'html',
+              payloadRepresentation: 'structured-json',
+              mimeType: 'application/json',
+              fileExtension: '.json',
+              checksumSha256: 'd2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2',
+            byteSize: 2,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            warnings: [],
+            errors: []
+          },
+          content: {
+            kind: 'inline',
+            encoding: 'utf-8',
+            bytesBase64: 'e30=',
+            serializedDocument: '{}'
+          },
+          storage: {
+            kind: 'none'
+          }
+        }
+      })
+    };
+
+    const { executor, job, markCompleted, markFailed, scheduleRetry } = createExecutor({ processor });
+    markCompleted.mockResolvedValueOnce(null);
+
+    const outcome = await executor.execute(job, new AbortController().signal);
+
+    expect(outcome).toBe('lease-lost');
+    expect(markCompleted).toHaveBeenCalledTimes(1);
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(scheduleRetry).not.toHaveBeenCalled();
+  });
 });

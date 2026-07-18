@@ -66,6 +66,7 @@ describe.sequential('stale processing recovery integration', () => {
       });
 
       expect(persisted?.status).toBe('retrying');
+      expect(persisted?.result).toBeNull();
       expect(persisted?.leaseOwner).toBeNull();
       expect(persisted?.leaseExpiresAt).toBeNull();
       expect(persisted?.nextAttemptAt).not.toBeNull();
@@ -131,6 +132,7 @@ describe.sequential('stale processing recovery integration', () => {
       });
 
       expect(persisted?.status).toBe('failed');
+      expect(persisted?.result).toBeNull();
       expect(persisted?.completedAt).not.toBeNull();
       expect(persisted?.leaseOwner).toBeNull();
 

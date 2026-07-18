@@ -12,8 +12,16 @@ import {
   UnsupportedHtmlElementError,
   UnsupportedPublicationTypeError
 } from '../../../src/application/publications/index.js';
+import {
+  RenderCancelledError,
+  RenderFailedError,
+  RenderValidationError,
+  UnsupportedRenderFormatError,
+  UnsupportedRenderThemeError
+} from '../../../src/application/rendering/index.js';
 import type { HtmlComposer } from '../../../src/application/publications/html-composer.js';
 import type { PublicationGenerator } from '../../../src/application/publications/publication-generator.js';
+import type { PublicationRenderer } from '../../../src/application/rendering/publication-renderer.js';
 import { DeterministicTranscriptProcessor } from '../../../src/infrastructure/workers/deterministic-transcript-processor.js';
 import { PermanentWorkerError, WorkerCancelledError } from '../../../src/domain/workers/worker-errors.js';
 
@@ -243,6 +251,46 @@ function createHtmlComposer(overrides?: Partial<HtmlComposer>): HtmlComposer {
         ]
       }
     }),
+    ...overrides
+  };
+}
+
+function createRenderer(overrides?: Partial<PublicationRenderer>): PublicationRenderer {
+  return {
+    render: () => ({
+      metadata: {
+        artifactId: 'artifact_1',
+        status: 'ready',
+        format: 'html',
+           payloadRepresentation: 'structured-json',
+           mimeType: 'application/json',
+           fileExtension: '.json',
+        checksumSha256: 'd2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2',
+        byteSize: 10,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        warnings: [],
+        errors: []
+      },
+      content: {
+        kind: 'inline',
+        encoding: 'utf-8',
+        bytesBase64: 'e30=',
+        serializedDocument: '{}'
+      },
+      storage: {
+        kind: 'none'
+      }
+    }),
+    validate: () => undefined,
+    getCapabilities: () => ({
+      renderer: 'test',
+      formats: ['html'],
+      themes: ['classic'],
+      supportedTokenCategories: ['page-intent']
+    }),
+    supports: () => true,
+    supportedThemes: () => ['classic'],
+    supportedFormats: () => ['html'],
     ...overrides
   };
 }
@@ -487,5 +535,214 @@ describe('deterministic transcript processor publication integration', () => {
         heartbeat: async () => undefined
       })
     ).rejects.toBeInstanceOf(WorkerCancelledError);
+  });
+
+  it('keeps behavior unchanged when optional renderer is not configured', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer()
+    );
+
+    const result = await processor.process({
+      job: baseJob,
+      signal: new AbortController().signal,
+      reportStage: async () => undefined,
+      heartbeat: async () => undefined
+    });
+
+    expect(result.htmlDocument).toBeDefined();
+    expect(result.renderArtifact).toBeUndefined();
+  });
+
+  it('attaches render artifact when optional renderer succeeds', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer(),
+      createRenderer()
+    );
+
+    const result = await processor.process({
+      job: baseJob,
+      signal: new AbortController().signal,
+      reportStage: async () => undefined,
+      heartbeat: async () => undefined
+    });
+
+    expect(result.renderArtifact?.metadata.format).toBe('html');
+    expect(result.renderArtifact?.metadata.payloadRepresentation).toBe('structured-json');
+      expect(result.renderArtifact?.metadata.mimeType).toBe('application/json');
+  });
+
+  it('maps renderer validation failure to permanent worker error', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer(),
+      createRenderer({
+        render: () => {
+          throw new RenderValidationError();
+        }
+      })
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.RENDER_VALIDATION_ERROR });
+  });
+
+  it('maps unsupported render format to permanent worker error', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer(),
+      createRenderer({
+        render: () => {
+          throw new UnsupportedRenderFormatError();
+        }
+      })
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.UNSUPPORTED_FORMAT });
+  });
+
+  it('maps unsupported render theme to permanent worker error', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer(),
+      createRenderer({
+        render: () => {
+          throw new UnsupportedRenderThemeError();
+        }
+      })
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.UNSUPPORTED_THEME });
+  });
+
+  it('maps renderer failures to permanent worker error without retry semantics', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer(),
+      createRenderer({
+        render: () => {
+          throw new RenderFailedError();
+        }
+      })
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.RENDER_FAILED });
+  });
+
+  it('preserves cancellation when renderer is cancelled', async () => {
+    const processor = new DeterministicTranscriptProcessor(
+      createRepository(),
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer(),
+      createRenderer({
+        render: () => {
+          throw new RenderCancelledError();
+        }
+      })
+    );
+
+    await expect(
+      processor.process({
+        job: baseJob,
+        signal: new AbortController().signal,
+        reportStage: async () => undefined,
+        heartbeat: async () => undefined
+      })
+    ).rejects.toBeInstanceOf(WorkerCancelledError);
+  });
+
+  it('does not leak transcript privacy sentinel into render request metadata or render artifact', async () => {
+    const sentinel = 'PRIVATE_RENDER_TRANSCRIPT_SENTINEL_DO_NOT_PERSIST';
+    let capturedMetadata = '';
+    let capturedArtifact = '';
+
+    const repositoryWithSentinel: SourceVersionRepository = {
+      ...createRepository(),
+      getById: async () => ({
+        id: 'srcver_01TEST' as const,
+        tenantId: 'tenant_01TEST' as const,
+        projectId: 'project_01TEST' as const,
+        versionNumber: 1,
+        contentHash: 'hash',
+        transcriptText: sentinel,
+        createdAt: new Date('2026-01-01T00:00:00.000Z')
+      })
+    };
+
+    const processor = new DeterministicTranscriptProcessor(
+      repositoryWithSentinel,
+      () => new Date('2026-01-01T00:00:00.000Z'),
+      createAiPipeline() as any,
+      createGenerator(),
+      createHtmlComposer(),
+      createRenderer({
+        render: (request) => {
+          capturedMetadata = JSON.stringify(request.metadata);
+
+          const artifact = createRenderer().render(request);
+          capturedArtifact = JSON.stringify(artifact);
+          return artifact;
+        }
+      })
+    );
+
+    const result = await processor.process({
+      job: baseJob,
+      signal: new AbortController().signal,
+      reportStage: async () => undefined,
+      heartbeat: async () => undefined
+    });
+
+    expect(capturedMetadata).not.toContain(sentinel);
+    expect(capturedArtifact).not.toContain(sentinel);
+    expect(JSON.stringify(result.renderArtifact)).not.toContain(sentinel);
   });
 });

@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AIPipeline } from '../../../src/application/ai/pipeline.js';
 import { JobExecutor } from '../../../src/application/workers/job-executor.js';
 import { PublicationValidationError, UnsupportedPublicationTypeError } from '../../../src/application/publications/publication-errors.js';
-import { HtmlValidationError, PublicationBuilder } from '../../../src/application/publications/index.js';
+import { HtmlValidationError, PublicationBuilder, PublicationHtmlComposer } from '../../../src/application/publications/index.js';
+import { HtmlPassthroughRenderer, RenderCancelledError, UnsupportedRenderFormatError } from '../../../src/application/rendering/index.js';
 import { MockAIProvider } from '../../../src/infrastructure/ai/providers/mock-provider.js';
 import { createWorkerApp } from '../../../src/worker/app.js';
 import { DatabaseJobSource } from '../../../src/infrastructure/workers/database-job-source.js';
@@ -95,8 +96,10 @@ describe.sequential('publication worker integration', () => {
 
       const publication = completed.result?.publication;
       const htmlDocument = completed.result?.htmlDocument;
+      const renderArtifact = completed.result?.renderArtifact;
       expect(publication).toBeDefined();
       expect(htmlDocument).toBeDefined();
+      expect(renderArtifact).toBeUndefined();
 
       const serializedPublication = JSON.stringify(publication);
       const serializedHtml = JSON.stringify(htmlDocument);
@@ -368,6 +371,253 @@ describe.sequential('publication worker integration', () => {
 
     expect(events.filter((event) => event.eventType === 'job-completed')).toHaveLength(0);
     expect(events.filter((event) => event.eventType === 'job-retry-scheduled')).toHaveLength(0);
+
+    await clearWorkerScope(created.scope.tenantId);
+  });
+
+  it('persists optional render artifact when renderer is configured and does not leak render privacy sentinel', async () => {
+    const transcriptSentinel = 'PRIVATE_RENDER_TRANSCRIPT_SENTINEL_DO_NOT_PERSIST';
+    const created = await createQueuedJob({
+      idempotencyKey: 'render-success-1',
+      transcriptText: transcriptSentinel
+    });
+
+    const jobSource = new DatabaseJobSource(integrationDb);
+
+    const executor = new JobExecutor({
+      jobSource,
+      heartbeatStore: new DatabaseWorkerHeartbeatStore(jobSource),
+      processors: [
+        new DeterministicTranscriptProcessor(
+          repositories.sourceVersions,
+          () => new Date('2026-01-01T00:00:00.000Z'),
+          new AIPipeline(
+            new MockAIProvider({ mode: 'success', now: () => new Date('2026-01-01T00:00:00.000Z') }),
+            '1.0.0',
+            1000
+          ),
+          new PublicationBuilder(() => new Date('2026-01-01T00:00:00.000Z')),
+          new PublicationHtmlComposer(),
+          new HtmlPassthroughRenderer({
+            now: () => new Date('2026-01-01T00:00:00.000Z'),
+            createArtifactId: () => 'artifact_render_success_1'
+          })
+        )
+      ],
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
+      sleep: async () => undefined,
+      heartbeatIntervalMs: 5,
+      leaseDurationMs: 1000,
+      retryPolicy: {
+        baseDelayMs: 10,
+        maxDelayMs: 1000,
+        maxAttempts: 2
+      },
+      maxAttempts: 2,
+      logger: {
+        info: () => undefined,
+        warn: () => undefined,
+        error: () => undefined
+      }
+    });
+
+    const leased = await jobSource.acquireNext({
+      workerId: 'worker_render_success',
+      leaseDurationMs: 1000,
+      now: new Date('2026-01-01T00:00:00.000Z')
+    });
+
+    expect(leased).not.toBeNull();
+
+    const outcome = await executor.execute(leased!, new AbortController().signal);
+    expect(outcome).toBe('completed');
+
+    const job = await getJobById({
+      tenantId: created.scope.tenantId,
+      jobId: created.job.id
+    });
+
+    expect(job?.status).toBe('completed');
+    expect(job?.result?.renderArtifact?.metadata.format).toBe('html');
+    expect(job?.result?.renderArtifact?.metadata.payloadRepresentation).toBe('structured-json');
+    expect(job?.result?.renderArtifact?.metadata.mimeType).toBe('application/json');
+    expect(job?.result?.renderArtifact?.metadata.fileExtension).toBe('.json');
+
+    const serialized = JSON.stringify(job?.result);
+    expect(serialized).not.toContain(transcriptSentinel);
+    expect(serialized).not.toContain('authorization');
+    expect(serialized).not.toContain('api key');
+    expect(serialized).not.toContain('provider response');
+
+    const events = await listJobEvents({
+      tenantId: created.scope.tenantId,
+      jobId: created.job.id
+    });
+
+    expect(events.filter((event) => event.eventType === 'job-completed')).toHaveLength(1);
+
+    await clearWorkerScope(created.scope.tenantId);
+  });
+
+  it('maps deterministic render format failure to permanent failure with no retry, completion, or partial render persistence', async () => {
+    const created = await createQueuedJob({
+      idempotencyKey: 'render-format-failure-1',
+      transcriptText: 'PRIVATE_RENDER_TRANSCRIPT_SENTINEL_DO_NOT_PERSIST'
+    });
+
+    const jobSource = new DatabaseJobSource(integrationDb);
+
+    const executor = new JobExecutor({
+      jobSource,
+      heartbeatStore: new DatabaseWorkerHeartbeatStore(jobSource),
+      processors: [
+        new DeterministicTranscriptProcessor(
+          repositories.sourceVersions,
+          () => new Date('2026-01-01T00:00:00.000Z'),
+          new AIPipeline(
+            new MockAIProvider({ mode: 'success', now: () => new Date('2026-01-01T00:00:00.000Z') }),
+            '1.0.0',
+            1000
+          ),
+          new PublicationBuilder(() => new Date('2026-01-01T00:00:00.000Z')),
+          new PublicationHtmlComposer(),
+          {
+            render: () => {
+              throw new UnsupportedRenderFormatError('PRIVATE_RENDER_TRANSCRIPT_SENTINEL_DO_NOT_PERSIST');
+            },
+            validate: () => undefined,
+            getCapabilities: () => ({ renderer: 'test', formats: ['html'], themes: ['classic'], supportedTokenCategories: ['page-intent'] }),
+            supports: () => false,
+            supportedThemes: () => ['classic'],
+            supportedFormats: () => ['html']
+          }
+        )
+      ],
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
+      sleep: async () => undefined,
+      heartbeatIntervalMs: 5,
+      leaseDurationMs: 1000,
+      retryPolicy: {
+        baseDelayMs: 10,
+        maxDelayMs: 1000,
+        maxAttempts: 2
+      },
+      maxAttempts: 2,
+      logger: {
+        info: () => undefined,
+        warn: () => undefined,
+        error: () => undefined
+      }
+    });
+
+    const leased = await jobSource.acquireNext({
+      workerId: 'worker_render_failure',
+      leaseDurationMs: 1000,
+      now: new Date('2026-01-01T00:00:00.000Z')
+    });
+
+    expect(leased).not.toBeNull();
+
+    const outcome = await executor.execute(leased!, new AbortController().signal);
+    expect(outcome).toBe('failed');
+
+    const job = await getJobById({
+      tenantId: created.scope.tenantId,
+      jobId: created.job.id
+    });
+
+    expect(job?.status).toBe('failed');
+    expect(job?.errorCode).toBe(ErrorCode.UNSUPPORTED_FORMAT);
+    expect(job?.result).toBeNull();
+    expect(job?.nextAttemptAt).toBeNull();
+    expect(job?.errorMessage).not.toContain('PRIVATE_RENDER_TRANSCRIPT_SENTINEL_DO_NOT_PERSIST');
+
+    const events = await listJobEvents({
+      tenantId: created.scope.tenantId,
+      jobId: created.job.id
+    });
+
+    expect(events.filter((event) => event.eventType === 'job-completed')).toHaveLength(0);
+    expect(events.filter((event) => event.eventType === 'job-retry-scheduled')).toHaveLength(0);
+
+    await clearWorkerScope(created.scope.tenantId);
+  });
+
+  it('preserves cancellation behavior when rendering is cancelled', async () => {
+    const created = await createQueuedJob({
+      idempotencyKey: 'render-cancelled-1'
+    });
+
+    const jobSource = new DatabaseJobSource(integrationDb);
+
+    const executor = new JobExecutor({
+      jobSource,
+      heartbeatStore: new DatabaseWorkerHeartbeatStore(jobSource),
+      processors: [
+        new DeterministicTranscriptProcessor(
+          repositories.sourceVersions,
+          () => new Date('2026-01-01T00:00:00.000Z'),
+          new AIPipeline(
+            new MockAIProvider({ mode: 'success', now: () => new Date('2026-01-01T00:00:00.000Z') }),
+            '1.0.0',
+            1000
+          ),
+          new PublicationBuilder(() => new Date('2026-01-01T00:00:00.000Z')),
+          new PublicationHtmlComposer(),
+          {
+            render: () => {
+              throw new RenderCancelledError();
+            },
+            validate: () => undefined,
+            getCapabilities: () => ({ renderer: 'test', formats: ['html'], themes: ['classic'], supportedTokenCategories: ['page-intent'] }),
+            supports: () => true,
+            supportedThemes: () => ['classic'],
+            supportedFormats: () => ['html']
+          }
+        )
+      ],
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
+      sleep: async () => undefined,
+      heartbeatIntervalMs: 5,
+      leaseDurationMs: 1000,
+      retryPolicy: {
+        baseDelayMs: 10,
+        maxDelayMs: 1000,
+        maxAttempts: 2
+      },
+      maxAttempts: 2,
+      logger: {
+        info: () => undefined,
+        warn: () => undefined,
+        error: () => undefined
+      }
+    });
+
+    const leased = await jobSource.acquireNext({
+      workerId: 'worker_render_cancelled',
+      leaseDurationMs: 1000,
+      now: new Date('2026-01-01T00:00:00.000Z')
+    });
+
+    expect(leased).not.toBeNull();
+
+    const outcome = await executor.execute(leased!, new AbortController().signal);
+    expect(outcome).toBe('cancelled');
+
+    const job = await getJobById({
+      tenantId: created.scope.tenantId,
+      jobId: created.job.id
+    });
+
+    expect(job?.status).toBe('processing');
+    expect(job?.result).toBeNull();
+
+    const events = await listJobEvents({
+      tenantId: created.scope.tenantId,
+      jobId: created.job.id
+    });
+
+    expect(events.filter((event) => event.eventType === 'job-completed')).toHaveLength(0);
 
     await clearWorkerScope(created.scope.tenantId);
   });

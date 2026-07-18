@@ -4,6 +4,7 @@ import { createShutdownController } from '../platform/foundation/shutdown-signal
 import type { AIPipeline } from '../application/ai/pipeline.js';
 import { PublicationHtmlComposer } from '../application/publications/html-composer.js';
 import { PublicationBuilder } from '../application/publications/publication-builder.js';
+import type { PublicationRenderer } from '../application/rendering/publication-renderer.js';
 import type { SourceVersionRepository } from '../domain/repositories/source-version-repository.js';
 import type { WorkerJobSource, WorkerRuntimeState } from '../domain/workers/worker-types.js';
 import { DatabaseWorkerHeartbeatStore } from '../infrastructure/workers/worker-heartbeat-store.js';
@@ -29,6 +30,7 @@ export type CreateWorkerAppDependencies = {
   readonly sourceVersionRepository: SourceVersionRepository;
   readonly jobSource: WorkerJobSource;
   readonly aiPipeline?: AIPipeline;
+  readonly publicationRenderer?: PublicationRenderer;
   readonly logger: {
     info: (payload: Record<string, unknown>, message: string) => void;
     warn: (payload: Record<string, unknown>, message: string) => void;
@@ -69,7 +71,8 @@ export function createWorkerApp(
     () => clock.now(),
     dependencies.aiPipeline,
     new PublicationBuilder(() => clock.now()),
-    new PublicationHtmlComposer()
+    new PublicationHtmlComposer(),
+    dependencies.publicationRenderer
   );
 
   const executor = new JobExecutor({

@@ -7,6 +7,7 @@ import {
 import { aiPipelineResultSchema } from '../../schemas/ai/pipeline-schema.js';
 import { htmlDocumentSchema } from '../../schemas/publications/html-document-schema.js';
 import { publicationSchema } from '../../schemas/publications/publication-schema.js';
+import { renderArtifactSchema } from '../../schemas/rendering/rendering-schema.js';
 
 export const contentJobStatuses = [
   'queued',
@@ -52,7 +53,8 @@ export const transcriptProcessingResultSchema = z.object({
   processedAt: z.string().datetime({ offset: true }),
   ai: aiPipelineResultSchema.optional(),
   publication: publicationSchema.optional(),
-  htmlDocument: htmlDocumentSchema.optional()
+  htmlDocument: htmlDocumentSchema.optional(),
+  renderArtifact: renderArtifactSchema.optional()
 }).strict();
 
 export type TranscriptProcessingResult = z.infer<

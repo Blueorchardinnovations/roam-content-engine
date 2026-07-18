@@ -160,7 +160,7 @@ After AI pipeline completion, the worker now builds and persists a normalized pu
 
 Architecture flow:
 
-- `Worker -> AI Pipeline -> Publication Builder -> Publication Model -> HTML Composer -> HtmlDocument -> Renderer (future)`
+- `Worker -> AI Pipeline -> Publication Builder -> Publication Model -> HTML Composer -> HtmlDocument -> Optional Renderer -> Optional Render Artifact`
 
 The publication builder is renderer-independent and currently emits a structured CTA Guide publication model.
 
@@ -237,6 +237,62 @@ Composition characteristics:
 - TOC navigation is omitted when there are no TOC entries
 - callout blocks retain semantic distinctions (`dataPublicationBlock` and mapped `dataCalloutType`) instead of collapsing to a single generic marker
 
+## Publication Rendering Pipeline
+
+Implementation 09 introduces the rendering architecture layer without introducing production PDF/EPUB/DOCX generation.
+
+Rendering architecture:
+
+- renderer domain contracts for request/options/metadata/status/capabilities/artifacts
+- strict rendering schemas and validation layered on top of validated `HtmlDocument`
+- renderer interface (`render`, `validate`, `getCapabilities`, `supports`, `supportedThemes`, `supportedFormats`)
+- deterministic HTML passthrough renderer implementation
+- optional worker extension point after semantic HTML composition
+
+Rendering format model:
+
+- declared formats: `html`, `pdf`, `epub`, `docx`, `markdown`
+- current renderer implementation support: `html` only
+- current placeholder artifact payload representation: `structured-json`
+- current placeholder artifact MIME type: `application/json`
+- current placeholder artifact extension: `.json`
+- non-HTML requests fail with stable `UNSUPPORTED_FORMAT`
+
+Theme model:
+
+- rendering reuses publication themes: `classic`, `modern`, `ministry`, `workbook`, `magazine`, `minimal`, `dark`
+- unsupported themes fail with stable `UNSUPPORTED_THEME`
+
+Render validation includes:
+
+- validated semantic `HtmlDocument` input (no duplicate HTML validation model)
+- required rendering metadata checks
+- format and theme capability checks
+- style-token compatibility checks against renderer capabilities
+- asset URI safety checks via centralized URL safety rules
+
+Render artifact model distinguishes:
+
+- artifact metadata (id/format/mime/extension/checksum/byte-size/created-at/warnings/errors)
+- inline payload content (deterministic UTF-8 canonical JSON representation of the validated semantic HtmlDocument)
+- persisted storage reference (`none` for passthrough renderer)
+
+Rendering error taxonomy:
+
+- `RENDER_VALIDATION_ERROR`
+- `UNSUPPORTED_FORMAT`
+- `UNSUPPORTED_THEME`
+- `RENDER_FAILED`
+- `INVALID_ASSET`
+
+Worker integration behavior:
+
+- rendering runs only after successful semantic HTML composition
+- rendering remains optional; when no renderer is configured, behavior is unchanged
+- deterministic rendering failures are treated as permanent worker failures (no retry scheduling)
+- render cancellation preserves existing worker cancellation semantics
+- failed rendering does not persist partial render artifacts or completion events
+
 Current CTA template policy:
 
 - no invented prayer, CTA, journal, or next-step prose
@@ -247,18 +303,20 @@ Current limitations:
 
 - pagination is not implemented
 - binary asset embedding is not implemented
-- EPUB rendering is not implemented.
-- PDF rendering is not implemented.
-- DOCX rendering is not implemented.
+- production EPUB rendering is not implemented.
+- production PDF rendering is not implemented.
+- production DOCX rendering is not implemented.
 - CSS generation is not implemented.
-- Browser rendering is not implemented.
+- browser-preview rendering is not implemented.
 - Print layout is not implemented.
-- HTML renderer execution is not implemented (only HtmlDocument composition exists).
+- HTML passthrough rendering exists only as an architectural placeholder that emits structured JSON artifacts (not browser-ready HTML markup).
 - cover image assets are references only.
 - page numbers remain null until rendering.
 - Vivliostyle integration is not implemented.
 - Paged.js integration is not implemented.
 - PrinceXML integration is not implemented.
+- Markdown renderer implementation is not implemented.
+- HTML markup serializer implementation is not implemented.
 
 Worker retry semantics for AI execution:
 
@@ -269,6 +327,7 @@ Worker error taxonomy for publication and HTML composition:
 
 - publication failures: `PUBLICATION_VALIDATION_ERROR`, `PUBLICATION_UNSUPPORTED_TYPE`, `PUBLICATION_BUILD_ERROR`
 - html failures: `HTML_VALIDATION_ERROR`, `HTML_UNSUPPORTED_ELEMENT`, `HTML_COMPOSITION_ERROR`
+- rendering failures: `RENDER_VALIDATION_ERROR`, `UNSUPPORTED_FORMAT`, `UNSUPPORTED_THEME`, `RENDER_FAILED`, `INVALID_ASSET`
 - cancelled publication/html flows map to worker cancellation (no partial persistence)
 
 Privacy guarantees for publication/html persistence:
@@ -330,6 +389,12 @@ Run HTML-focused safety and composition tests:
 
 ```bash
 npm run test:html
+```
+
+Run rendering-focused tests:
+
+```bash
+npm run test:rendering
 ```
 
 Repository-layer focused commands:

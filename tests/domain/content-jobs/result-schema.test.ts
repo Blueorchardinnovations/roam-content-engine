@@ -17,6 +17,45 @@ describe('transcript processing result schema', () => {
 
     expect(result.success).toBe(true);
   });
+  
+  it('accepts render artifact output when valid', () => {
+    const result = transcriptProcessingResultSchema.safeParse({
+      schemaVersion: '1.0',
+      sourceVersionId: 'srcver_01JXYZ12345678901234567890',
+      contentHash: 'abc123',
+      wordCount: 100,
+      characterCount: 500,
+      paragraphCount: 5,
+      lineCount: 12,
+      processedAt: '2026-01-01T00:00:00.000Z',
+      renderArtifact: {
+        metadata: {
+          artifactId: 'artifact_1',
+          status: 'ready',
+          format: 'html',
+          payloadRepresentation: 'structured-json',
+          mimeType: 'application/json',
+          fileExtension: '.json',
+          checksumSha256: 'd2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2',
+          byteSize: 2,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          warnings: [],
+          errors: []
+        },
+        content: {
+          kind: 'inline',
+          encoding: 'utf-8',
+          bytesBase64: 'e30=',
+          serializedDocument: '{}'
+        },
+        storage: {
+          kind: 'none'
+        }
+      }
+    });
+  
+    expect(result.success).toBe(true);
+  });
 
   it('rejects invalid schemaVersion', () => {
     const result = transcriptProcessingResultSchema.safeParse({
@@ -109,8 +148,9 @@ describe('transcript processing result schema', () => {
           publicationId: 'pub_1',
           publicationType: 'cta-guide',
           title: 'Title',
-          subtitle: 'Subtitle',
-          author: 'RoaM Content Engine',
+           payloadRepresentation: 'structured-json',
+           mimeType: 'application/json',
+           fileExtension: '.json',
           organization: null,
           generatedAt: '2026-01-01T00:00:00.000Z',
           sourceVersionId: 'srcver_01JXYZ12345678901234567890',

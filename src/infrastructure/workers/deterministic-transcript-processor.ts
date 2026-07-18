@@ -1,5 +1,6 @@
 import type { SourceVersionRepository } from '../../domain/repositories/source-version-repository.js';
 import type { ContentJobStage, TranscriptProcessingResult } from '../../domain/content-jobs/types.js';
+import type { HtmlDocument as DomainHtmlDocument } from '../../domain/publications/html-types.js';
 import type { JobProcessor } from '../../domain/workers/job-processor.js';
 import type { WorkerLeasedJob } from '../../domain/workers/worker-types.js';
 import {
@@ -16,6 +17,7 @@ import { normalizeTranscript, computeTranscriptHash } from '../../platform/secur
 import type { AIPipeline } from '../../application/ai/pipeline.js';
 import type { HtmlComposer } from '../../application/publications/html-composer.js';
 import type { PublicationGenerator } from '../../application/publications/publication-generator.js';
+import type { PublicationRenderer } from '../../application/rendering/publication-renderer.js';
 import {
   HtmlCancelledError,
   HtmlCompositionError,
@@ -26,6 +28,14 @@ import {
   PublicationValidationError,
   UnsupportedPublicationTypeError
 } from '../../application/publications/index.js';
+import {
+  InvalidRenderAssetError,
+  RenderCancelledError,
+  RenderFailedError,
+  RenderValidationError,
+  UnsupportedRenderFormatError,
+  UnsupportedRenderThemeError
+} from '../../application/rendering/index.js';
 
 export class DeterministicTranscriptProcessor implements JobProcessor {
   public readonly jobType = 'transcript-processing' as const;
@@ -35,7 +45,8 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
     private readonly now: () => Date,
     private readonly aiPipeline?: AIPipeline,
     private readonly publicationGenerator?: PublicationGenerator,
-    private readonly htmlComposer?: HtmlComposer
+    private readonly htmlComposer?: HtmlComposer,
+    private readonly publicationRenderer?: PublicationRenderer
   ) {}
 
   public async process(input: {
@@ -93,6 +104,7 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
     let aiResult: TranscriptProcessingResult['ai'];
     let publicationResult: TranscriptProcessingResult['publication'];
     let htmlDocumentResult: TranscriptProcessingResult['htmlDocument'];
+    let renderArtifactResult: TranscriptProcessingResult['renderArtifact'];
 
     if (this.aiPipeline) {
       try {
@@ -207,6 +219,88 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
 
         throw error;
       }
+
+      if (this.publicationRenderer && htmlDocumentResult) {
+        if (!publicationResult) {
+          throw new PermanentWorkerError(
+            'Publication rendering requires a generated publication model.',
+            ErrorCode.RENDER_VALIDATION_ERROR
+          );
+        }
+
+        const publication = publicationResult;
+
+        try {
+          renderArtifactResult = this.publicationRenderer.render(
+            {
+              htmlDocument: htmlDocumentResult as unknown as DomainHtmlDocument,
+              metadata: {
+                title: publication.metadata.title,
+                subtitle: publication.metadata.subtitle,
+                author: publication.metadata.author,
+                speaker: null,
+                organization: publication.metadata.organization,
+                publicationDate: publication.metadata.generatedAt,
+                language: publication.document.language,
+                theme: publication.metadata.theme,
+                keywords: publication.citations.map((citation) => citation.label),
+                description: publication.metadata.subtitle,
+                coverImageReference: publication.cover.coverImageAssetId === null
+                  ? null
+                  : publication.assets.find((asset) => asset.id === publication.cover.coverImageAssetId)?.uri ?? null,
+                copyright: null,
+                license: null
+              },
+              options: {
+                format: 'html',
+                theme: publication.metadata.theme
+              }
+            },
+            input.signal
+          );
+        } catch (error) {
+          if (error instanceof RenderCancelledError || input.signal.aborted) {
+            throw new WorkerCancelledError();
+          }
+
+          if (error instanceof RenderValidationError) {
+            throw new PermanentWorkerError(
+              'Render request validation failed.',
+              ErrorCode.RENDER_VALIDATION_ERROR
+            );
+          }
+
+          if (error instanceof UnsupportedRenderFormatError) {
+            throw new PermanentWorkerError(
+              'Render format is not supported.',
+              ErrorCode.UNSUPPORTED_FORMAT
+            );
+          }
+
+          if (error instanceof UnsupportedRenderThemeError) {
+            throw new PermanentWorkerError(
+              'Render theme is not supported.',
+              ErrorCode.UNSUPPORTED_THEME
+            );
+          }
+
+          if (error instanceof InvalidRenderAssetError) {
+            throw new PermanentWorkerError(
+              'Render assets are invalid.',
+              ErrorCode.INVALID_ASSET
+            );
+          }
+
+          if (error instanceof RenderFailedError) {
+            throw new PermanentWorkerError(
+              'Rendering failed.',
+              ErrorCode.RENDER_FAILED
+            );
+          }
+
+          throw error;
+        }
+      }
     }
 
     if (input.signal.aborted) {
@@ -226,7 +320,8 @@ export class DeterministicTranscriptProcessor implements JobProcessor {
       processedAt,
       ai: aiResult,
       publication: publicationResult,
-      htmlDocument: htmlDocumentResult
+      htmlDocument: htmlDocumentResult,
+      renderArtifact: renderArtifactResult
     };
   }
 }

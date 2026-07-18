@@ -13,7 +13,13 @@ import { DeterministicTranscriptProcessor } from '../../../src/infrastructure/wo
 import { ErrorCode } from '../../../src/platform/shared/errors/codes.js';
 import { clearAllWorkerData, clearWorkerScope, createQueuedJob, getJobById, integrationDb, listJobEvents, repositories } from '../workers/support.js';
 
-function buildSuccessWorker(aiPipeline: AIPipeline) {
+function buildSuccessWorker(
+  aiPipeline: AIPipeline,
+  options?: {
+    rendererSelection?: 'structured-json' | 'html-markup';
+    createRenderArtifactId?: () => string;
+  }
+) {
   return createWorkerApp({
     workerConfig: {
       workerId: 'worker_publication_test',
@@ -30,6 +36,8 @@ function buildSuccessWorker(aiPipeline: AIPipeline) {
     sourceVersionRepository: repositories.sourceVersions,
     jobSource: new DatabaseJobSource(integrationDb),
     aiPipeline,
+    rendererSelection: options?.rendererSelection,
+    createRenderArtifactId: options?.createRenderArtifactId,
     logger: {
       info: () => undefined,
       warn: () => undefined,
@@ -457,6 +465,91 @@ describe.sequential('publication worker integration', () => {
     expect(events.filter((event) => event.eventType === 'job-completed')).toHaveLength(1);
 
     await clearWorkerScope(created.scope.tenantId);
+  });
+
+  it('selects html-markup renderer explicitly and persists html artifact metadata', async () => {
+    const created = await createQueuedJob({
+      idempotencyKey: 'render-html-markup-selection-1',
+      transcriptText: 'PRIVATE_RENDER_TRANSCRIPT_SENTINEL_DO_NOT_PERSIST'
+    });
+
+    const worker = buildSuccessWorker(new AIPipeline(
+      new MockAIProvider({
+        mode: 'success',
+        now: () => new Date('2026-01-01T00:00:00.000Z')
+      }),
+      '1.0.0',
+      1000
+    ), {
+      rendererSelection: 'html-markup',
+      createRenderArtifactId: () => 'artifact_html_markup_selection_1'
+    });
+
+    const runPromise = worker.start();
+
+    try {
+      const completed = await waitForJobStatus({
+        tenantId: created.scope.tenantId,
+        jobId: created.job.id,
+        status: 'completed'
+      });
+
+      expect(completed.result?.renderArtifact?.metadata.format).toBe('html');
+      expect(completed.result?.renderArtifact?.metadata.payloadRepresentation).toBe('html-markup');
+      expect(completed.result?.renderArtifact?.metadata.mimeType).toBe('text/html; charset=utf-8');
+      expect(completed.result?.renderArtifact?.metadata.fileExtension).toBe('.html');
+      expect(completed.result?.renderArtifact?.content?.serializedDocument.startsWith('<!doctype html>')).toBe(true);
+
+      const events = await listJobEvents({
+        tenantId: created.scope.tenantId,
+        jobId: created.job.id
+      });
+
+      expect(events.filter((event) => event.eventType === 'job-completed')).toHaveLength(1);
+    } finally {
+      await worker.stop();
+      await runPromise;
+      await clearWorkerScope(created.scope.tenantId);
+    }
+  });
+
+  it('selects structured-json renderer explicitly and preserves passthrough artifact metadata', async () => {
+    const created = await createQueuedJob({
+      idempotencyKey: 'render-structured-selection-1',
+      transcriptText: 'PRIVATE_RENDER_TRANSCRIPT_SENTINEL_DO_NOT_PERSIST'
+    });
+
+    const worker = buildSuccessWorker(new AIPipeline(
+      new MockAIProvider({
+        mode: 'success',
+        now: () => new Date('2026-01-01T00:00:00.000Z')
+      }),
+      '1.0.0',
+      1000
+    ), {
+      rendererSelection: 'structured-json',
+      createRenderArtifactId: () => 'artifact_structured_selection_1'
+    });
+
+    const runPromise = worker.start();
+
+    try {
+      const completed = await waitForJobStatus({
+        tenantId: created.scope.tenantId,
+        jobId: created.job.id,
+        status: 'completed'
+      });
+
+      expect(completed.result?.renderArtifact?.metadata.format).toBe('html');
+      expect(completed.result?.renderArtifact?.metadata.payloadRepresentation).toBe('structured-json');
+      expect(completed.result?.renderArtifact?.metadata.mimeType).toBe('application/json');
+      expect(completed.result?.renderArtifact?.metadata.fileExtension).toBe('.json');
+      expect(completed.result?.renderArtifact?.content?.serializedDocument.trim().startsWith('{')).toBe(true);
+    } finally {
+      await worker.stop();
+      await runPromise;
+      await clearWorkerScope(created.scope.tenantId);
+    }
   });
 
   it('maps deterministic render format failure to permanent failure with no retry, completion, or partial render persistence', async () => {

@@ -246,6 +246,8 @@ Rendering architecture:
 - renderer domain contracts for request/options/metadata/status/capabilities/artifacts
 - strict rendering schemas and validation layered on top of validated `HtmlDocument`
 - renderer interface (`render`, `validate`, `getCapabilities`, `supports`, `supportedThemes`, `supportedFormats`)
+- deterministic `HtmlMarkupSerializer` that converts validated semantic `HtmlDocument` into canonical HTML5 markup
+- deterministic `HtmlMarkupRenderer` that wraps the serializer and emits HTML-specific render artifacts
 - deterministic HTML passthrough renderer implementation
 - optional worker extension point after semantic HTML composition
 
@@ -253,9 +255,15 @@ Rendering format model:
 
 - declared formats: `html`, `pdf`, `epub`, `docx`, `markdown`
 - current renderer implementation support: `html` only
+- explicit renderer selection values: `structured-json` and `html-markup`
+- `structured-json` selects `HtmlPassthroughRenderer`
+- `html-markup` selects `HtmlMarkupRenderer`
 - current placeholder artifact payload representation: `structured-json`
 - current placeholder artifact MIME type: `application/json`
 - current placeholder artifact extension: `.json`
+- current HTML markup artifact payload representation: `html-markup`
+- current HTML markup artifact MIME type: `text/html; charset=utf-8`
+- current HTML markup artifact extension: `.html`
 - non-HTML requests fail with stable `UNSUPPORTED_FORMAT`
 
 Theme model:
@@ -275,7 +283,36 @@ Render artifact model distinguishes:
 
 - artifact metadata (id/format/mime/extension/checksum/byte-size/created-at/warnings/errors)
 - inline payload content (deterministic UTF-8 canonical JSON representation of the validated semantic HtmlDocument)
+- inline payload content for markup renderer (deterministic UTF-8 canonical semantic HTML5 markup)
 - persisted storage reference (`none` for passthrough renderer)
+
+Markup serializer and renderer responsibilities:
+
+- `HtmlPassthroughRenderer` produces deterministic canonical structured JSON
+- `HtmlMarkupSerializer` converts a validated `HtmlDocument` into deterministic browser-ready semantic HTML5
+- `HtmlMarkupRenderer` wraps the serializer and produces a render artifact with HTML-specific metadata
+- serializer is pure and deterministic: identical `HtmlDocument` input yields identical HTML output bytes
+- renderer performs request validation, capability checks, checksum and byte-size calculation from exact output bytes
+
+Deterministic HTML formatting policy:
+
+- canonical lowercase `<!doctype html>`
+- lowercase tags from validated semantic model
+- double-quoted attributes
+- deterministic attribute ordering
+- deterministic class ordering
+- LF newlines only
+- deterministic void-element serialization
+- no browser-dependent DOM serialization
+
+Escaping and safety policy:
+
+- all untrusted text and attribute values are HTML escaped
+- URL safety validation reuses centralized URL policy (`assertSafeExternalUrl`, `assertSafeAssetUrl`, `assertSafeInternalHref`)
+- only controlled attributes are serialized
+- semantic block identities are preserved using `data-publication-block`
+- stable CSS hooks are generated for future theme and pagination layers
+- active content is prohibited (`script`, `iframe`, `object`, `embed`, event handlers, inline javascript)
 
 Rendering error taxonomy:
 
@@ -316,7 +353,11 @@ Current limitations:
 - Paged.js integration is not implemented.
 - PrinceXML integration is not implemented.
 - Markdown renderer implementation is not implemented.
-- HTML markup serializer implementation is not implemented.
+- HTML markup serializer exists and emits semantic browser-ready HTML5 without production layout CSS.
+- HTML markup renderer does not apply production page-layout CSS.
+- HTML markup renderer does not paginate content.
+- HTML markup renderer does not generate PDF, EPUB, DOCX, or Markdown.
+- Vivliostyle integration is a later implementation.
 
 Worker retry semantics for AI execution:
 
